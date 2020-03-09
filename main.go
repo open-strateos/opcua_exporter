@@ -18,7 +18,7 @@ import (
 
 var port = flag.Int("port", 9100, "Port to publish metrics on.")
 var endpoint = flag.String("endpoint", "opc.tcp://localhost:4096", "OPC UA Endpoint to connect to.")
-var promPrefix = flag.String("prom-prefix", "opcua", "Prefix will be appended to emitted prometheus metrics")
+var promPrefix = flag.String("prom-prefix", "", "Prefix will be appended to emitted prometheus metrics")
 
 type gaugeMap map[string]prometheus.Gauge
 
@@ -97,7 +97,10 @@ func cleanup(sub *monitor.Subscription) {
 func createMetrics(nodeList *[]string) gaugeMap {
 	metricMap := make(gaugeMap)
 	for _, nodeName := range *nodeList {
-		metricName := fmt.Sprintf("%s_%s", *promPrefix, nodeNameToMetricName(&nodeName))
+		metricName := nodeNameToMetricName(&nodeName)
+		if *promPrefix != "" {
+			metricName = fmt.Sprintf("%s_%s", *promPrefix, metricName)
+		}
 		g := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: metricName,
 			Help: "From OPC UA",
