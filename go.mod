@@ -1,4 +1,4 @@
-module github.com/strateos/opcua_prom_exporter
+module github.com/strateos/prometheus_exporters/opcua_exporter
 
 go 1.13
 
