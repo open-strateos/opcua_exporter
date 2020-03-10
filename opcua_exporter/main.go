@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gopcua/opcua"
@@ -16,6 +18,9 @@ import (
 
 var port = flag.Int("port", 9100, "Port to publish metrics on.")
 var endpoint = flag.String("endpoint", "opc.tcp://localhost:4096", "OPC UA Endpoint to connect to.")
+var promPrefix = flag.String("prom-prefix", "", "Prefix will be appended to emitted prometheus metrics")
+
+type gaugeMap map[string]prometheus.Gauge
 
 var nodeList = []string{
 	"ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[0]",
@@ -37,14 +42,8 @@ func main() {
 	}
 	defer client.Close()
 
-	setupMonitor(ctx, client, &nodeList)
-
-	var tempGuage = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "foo",
-		Help: "A test metric",
-	})
-	prometheus.MustRegister(tempGuage)
-	tempGuage.Set(24)
+	metricMap := createMetrics(&nodeList)
+	go setupMonitor(ctx, client, &nodeList, metricMap)
 
 	http.Handle("/metrics", promhttp.Handler())
 	var listenOn = fmt.Sprintf(":%d", *port)
@@ -57,13 +56,11 @@ func getClient(endpoint *string) *opcua.Client {
 	return client
 }
 
-func setupMonitor(ctx context.Context, client *opcua.Client, nodeList *[]string) {
+func setupMonitor(ctx context.Context, client *opcua.Client, nodeList *[]string, metricMap gaugeMap) {
 	m, err := monitor.NewNodeMonitor(client)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	metricMap := *createMetrics(nodeList)
 
 	ch := make(chan *monitor.DataChangeMessage, 16)
 	params := opcua.SubscriptionParameters{Interval: time.Second}
@@ -76,15 +73,15 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodeList *[]string)
 	lag := time.Duration(0)
 	for {
 		select {
-		// case <-ctx.Done():
-		// 	return
+		case <-ctx.Done():
+			return
 		case msg := <-ch:
 			if msg.Error != nil {
 				log.Printf("[channel ] sub=%d error=%s", sub.SubscriptionID(), msg.Error)
 			} else {
 				log.Printf("[channel ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
 				metric := metricMap[msg.NodeID.String()]
-				metric.Set(msg.Value.Value().(float64))
+				metric.Set(float64(msg.Value.Value().(int32)))
 			}
 			time.Sleep(lag)
 		}
@@ -97,16 +94,33 @@ func cleanup(sub *monitor.Subscription) {
 	sub.Unsubscribe()
 }
 
-func createMetrics(nodeList *[]string) *map[string]prometheus.Gauge {
-	metricMap := make(map[string]prometheus.Gauge)
+func createMetrics(nodeList *[]string) gaugeMap {
+	metricMap := make(gaugeMap)
 	for _, nodeName := range *nodeList {
+		metricName := nodeNameToMetricName(&nodeName)
+		if *promPrefix != "" {
+			metricName = fmt.Sprintf("%s_%s", *promPrefix, metricName)
+		}
 		g := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: nodeName,
+			Name: metricName,
 			Help: "From OPC UA",
 		})
 		prometheus.MustRegister(g)
 		metricMap[nodeName] = g
+		log.Printf("Created prom metric %s for OPC UA node %s", metricName, nodeName)
 	}
 
-	return &metricMap
+	return metricMap
+}
+
+var nodeNameMatcher = regexp.MustCompile(`s=\[([^\]]+)\]([^;]+)`)
+
+func nodeNameToMetricName(node *string) string {
+	match := nodeNameMatcher.FindStringSubmatch(*node)
+	result := fmt.Sprintf("%s_%s", match[1], match[2])
+	for _, sym := range "[]." {
+		result = strings.ReplaceAll(result, string(sym), "_")
+	}
+	result = strings.Trim(result, "_")
+	return result
 }
