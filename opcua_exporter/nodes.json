@@ -1,0 +1,19 @@
+[
+    {
+        "nodeName": "ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[0]",
+        "metricName": "lift_station_alarm_0"
+    },
+    {
+        "nodeName": "ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[1]",
+        "metricName": "lift_station_alarm_1"
+    },
+    {
+        "nodeName": "ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[2]",
+        "metricName": "lift_station_alarm_2"
+    },
+    {
+        "nodeName": "ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[3]",
+        "metricName": "lift_station_alarm_3"
+    }
+]
+
