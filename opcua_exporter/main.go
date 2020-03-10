@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"regexp"
-	"strings"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/gopcua/opcua"
@@ -19,14 +22,15 @@ import (
 var port = flag.Int("port", 9100, "Port to publish metrics on.")
 var endpoint = flag.String("endpoint", "opc.tcp://localhost:4096", "OPC UA Endpoint to connect to.")
 var promPrefix = flag.String("prom-prefix", "", "Prefix will be appended to emitted prometheus metrics")
+var nodeListFile = flag.String("file", "", "Path to a file from which to read the list of OPC UA nodes to monitor")
 
+// Maps OPC UA channel names to prometheus Gauge instances
 type gaugeMap map[string]prometheus.Gauge
 
-var nodeList = []string{
-	"ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[0]",
-	"ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[1]",
-	"ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[2]",
-	"ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[3]",
+// Structure for representing OPCUA nodes to monitor.
+type Node struct {
+	NodeName   string // OPC UA node identifier
+	MetricName string // Prometheus metric name to emit
 }
 
 func main() {
@@ -36,14 +40,22 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	if *nodeListFile == "" {
+		log.Fatal("-file is a required option")
+	}
+	nodes, readError := readNodeFile(*nodeListFile)
+	if readError != nil {
+		log.Fatalf("Error reading config from JSON file: %v", readError)
+	}
+
 	client := getClient(endpoint)
 	if err := client.Connect(ctx); err != nil {
 		log.Fatal(err)
 	}
 	defer client.Close()
 
-	metricMap := createMetrics(&nodeList)
-	go setupMonitor(ctx, client, &nodeList, metricMap)
+	metricMap := createMetrics(&nodes)
+	go setupMonitor(ctx, client, &nodes, metricMap)
 
 	http.Handle("/metrics", promhttp.Handler())
 	var listenOn = fmt.Sprintf(":%d", *port)
@@ -56,21 +68,27 @@ func getClient(endpoint *string) *opcua.Client {
 	return client
 }
 
-func setupMonitor(ctx context.Context, client *opcua.Client, nodeList *[]string, metricMap gaugeMap) {
+// Subscribe to all the nodes and update the appropriate prometheus metrics on change
+func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]Node, metricMap gaugeMap) {
 	m, err := monitor.NewNodeMonitor(client)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	var nodeList []string
+	for _, node := range *nodes {
+		nodeList = append(nodeList, node.NodeName)
+	}
+
 	ch := make(chan *monitor.DataChangeMessage, 16)
 	params := opcua.SubscriptionParameters{Interval: time.Second}
-	sub, err := m.ChanSubscribe(ctx, &params, ch, *nodeList...)
+	sub, err := m.ChanSubscribe(ctx, &params, ch, nodeList...)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer cleanup(sub)
 
-	lag := time.Duration(0)
+	lag := time.Millisecond * 10
 	for {
 		select {
 		case <-ctx.Done():
@@ -94,10 +112,12 @@ func cleanup(sub *monitor.Subscription) {
 	sub.Unsubscribe()
 }
 
-func createMetrics(nodeList *[]string) gaugeMap {
+// Initialize a Prometheus gauge for each node. Return them as a map.
+func createMetrics(nodeList *[]Node) gaugeMap {
 	metricMap := make(gaugeMap)
-	for _, nodeName := range *nodeList {
-		metricName := nodeNameToMetricName(&nodeName)
+	for _, node := range *nodeList {
+		nodeName := node.NodeName
+		metricName := node.MetricName
 		if *promPrefix != "" {
 			metricName = fmt.Sprintf("%s_%s", *promPrefix, metricName)
 		}
@@ -113,14 +133,27 @@ func createMetrics(nodeList *[]string) gaugeMap {
 	return metricMap
 }
 
-var nodeNameMatcher = regexp.MustCompile(`s=\[([^\]]+)\]([^;]+)`)
-
-func nodeNameToMetricName(node *string) string {
-	match := nodeNameMatcher.FindStringSubmatch(*node)
-	result := fmt.Sprintf("%s_%s", match[1], match[2])
-	for _, sym := range "[]." {
-		result = strings.ReplaceAll(result, string(sym), "_")
+func readNodeFile(path string) ([]Node, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
 	}
-	result = strings.Trim(result, "_")
-	return result
+
+	f, err := os.Open(absPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseNodeJSONFile(f)
+}
+
+func parseNodeJSONFile(file io.Reader) ([]Node, error) {
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	var nodes []Node
+	err = json.Unmarshal(content, &nodes)
+	return nodes, err
 }
