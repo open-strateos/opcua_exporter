@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -19,10 +22,11 @@ import (
 var port = flag.Int("port", 9100, "Port to publish metrics on.")
 var endpoint = flag.String("endpoint", "opc.tcp://localhost:4096", "OPC UA Endpoint to connect to.")
 var promPrefix = flag.String("prom-prefix", "", "Prefix will be appended to emitted prometheus metrics")
+var nodeListFile = flag.String("file", "", "Path to a file from which to read the list of OPC UA nodes to monitor")
 
 type gaugeMap map[string]prometheus.Gauge
 
-var nodeList = []string{
+var defaultNodeList = []string{
 	"ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[0]",
 	"ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[1]",
 	"ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[2]",
@@ -35,6 +39,13 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	var nodeList []string
+	if *nodeListFile == "" {
+		nodeList = defaultNodeList
+	} else {
+		nodeList = readLines(*nodeListFile)
+	}
 
 	client := getClient(endpoint)
 	if err := client.Connect(ctx); err != nil {
@@ -113,14 +124,41 @@ func createMetrics(nodeList *[]string) gaugeMap {
 	return metricMap
 }
 
+// This assumes a very specific node name format
 var nodeNameMatcher = regexp.MustCompile(`s=\[([^\]]+)\]([^;]+)`)
 
 func nodeNameToMetricName(node *string) string {
 	match := nodeNameMatcher.FindStringSubmatch(*node)
+	if len(match) < 3 {
+		log.Fatalf("Unable to parse node name: \"%s\". Is it valid?", *node)
+	}
 	result := fmt.Sprintf("%s_%s", match[1], match[2])
 	for _, sym := range "[]." {
 		result = strings.ReplaceAll(result, string(sym), "_")
 	}
 	result = strings.Trim(result, "_")
 	return result
+}
+
+func readLines(path string) []string {
+	fullPath, err := filepath.Abs(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	file, err := os.Open(fullPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	lines := make([]string, 0, 4)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	if scanner.Err() != nil {
+		log.Fatal(scanner.Err())
+	}
+	return lines
 }
