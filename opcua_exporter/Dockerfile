@@ -8,4 +8,4 @@ WORKDIR /root
 COPY --from=builder /build/opcua_exporter .
 COPY --from=builder /build/nodes.json .
 ENTRYPOINT ["./opcua_exporter"]
-CMD ["-file", "nodes.json"]
+CMD ["-config", "nodes.json"]
