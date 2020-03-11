@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -22,7 +24,8 @@ import (
 var port = flag.Int("port", 9100, "Port to publish metrics on.")
 var endpoint = flag.String("endpoint", "opc.tcp://localhost:4096", "OPC UA Endpoint to connect to.")
 var promPrefix = flag.String("prom-prefix", "", "Prefix will be appended to emitted prometheus metrics")
-var nodeListFile = flag.String("file", "", "Path to a file from which to read the list of OPC UA nodes to monitor")
+var nodeListFile = flag.String("config", "", "Path to a file from which to read the list of OPC UA nodes to monitor")
+var configB64 = flag.String("config-b64", "", "Base64-encoded config JSON. Overrides -config")
 
 // Maps OPC UA channel names to prometheus Gauge instances
 type gaugeMap map[string]prometheus.Gauge
@@ -40,12 +43,20 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if *nodeListFile == "" {
-		log.Fatal("-file is a required option")
+	var nodes []Node
+	var readError error
+	if *configB64 != "" {
+		log.Print("Using base64-encoded config")
+		nodes, readError = readConfigBase64(configB64)
+	} else if *nodeListFile != "" {
+		log.Printf("Reading config from %s", *nodeListFile)
+		nodes, readError = readConfigFile(*nodeListFile)
+	} else {
+		log.Fatal("Requires -config or -config-b64")
 	}
-	nodes, readError := readNodeFile(*nodeListFile)
+
 	if readError != nil {
-		log.Fatalf("Error reading config from JSON file: %v", readError)
+		log.Fatalf("Error reading config JSON: %v", readError)
 	}
 
 	client := getClient(endpoint)
@@ -133,7 +144,7 @@ func createMetrics(nodeList *[]Node) gaugeMap {
 	return metricMap
 }
 
-func readNodeFile(path string) ([]Node, error) {
+func readConfigFile(path string) ([]Node, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -144,11 +155,19 @@ func readNodeFile(path string) ([]Node, error) {
 		return nil, err
 	}
 
-	return parseNodeJSONFile(f)
+	return parseConfigJSON(f)
 }
 
-func parseNodeJSONFile(file io.Reader) ([]Node, error) {
-	content, err := ioutil.ReadAll(file)
+func readConfigBase64(encodedConfig *string) ([]Node, error) {
+	config, decodeErr := base64.StdEncoding.DecodeString(*encodedConfig)
+	if decodeErr != nil {
+		log.Fatal(decodeErr)
+	}
+	return parseConfigJSON(bytes.NewReader(config))
+}
+
+func parseConfigJSON(config io.Reader) ([]Node, error) {
+	content, err := ioutil.ReadAll(config)
 	if err != nil {
 		return nil, err
 	}
