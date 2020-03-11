@@ -21,7 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var port = flag.Int("port", 9100, "Port to publish metrics on.")
+var port = flag.Int("port", 9686, "Port to publish metrics on.")
 var endpoint = flag.String("endpoint", "opc.tcp://localhost:4096", "OPC UA Endpoint to connect to.")
 var promPrefix = flag.String("prom-prefix", "", "Prefix will be appended to emitted prometheus metrics")
 var nodeListFile = flag.String("config", "", "Path to a file from which to read the list of OPC UA nodes to monitor")
