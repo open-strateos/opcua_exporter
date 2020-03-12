@@ -5,7 +5,7 @@ def DOCKER_TAG = (env.BRANCH_NAME == 'master') ? 'latest' : env.BRANCH_NAME
 def OPCUA_DOCKER_IMAGE = "742073802618.dkr.ecr.us-west-2.amazonaws.com/strateos/prometheus/opcua_exporter"
 def OPCUA_DIR = "./opcua_exporter"
 
-timeout(time: 40, unit: 'MINUTES') {
+timeout(time: 10, unit: 'MINUTES') {
   node('docker') {
     withEnv([
         'AWS_DEFAULT_REGION=us-west-2'
@@ -45,7 +45,7 @@ def test_opcua(image, tag, directory) {
         image: image,
         tag: tag,
         dockerfile: "Dockerfile",
-        use_cache: true,
+        use_cache: false,
         push: false,
         stage: "tester"
     )
