@@ -3,7 +3,7 @@
 def DOCKER_TAG = (env.BRANCH_NAME == 'master') ? 'latest' : env.BRANCH_NAME
 
 def OPCUA_DOCKER_IMAGE = "742073802618.dkr.ecr.us-west-2.amazonaws.com/strateos/prometheus/opcua_exporter"
-def OPCUA_DOCKERFILE = "./opcua_exporter/Dockerfile"
+def OPCUA_DIR = "./opcua_exporter"
 
 timeout(time: 40, unit: 'MINUTES') {
   node('docker') {
@@ -18,13 +18,13 @@ timeout(time: 40, unit: 'MINUTES') {
 
         stage('Test') {
           parallel(
-              "opcua": { test_opcua(OPCUA_DOCKER_IMAGE, DOCKER_TAG, OPCUA_DOCKERFILE) }
+              "opcua": { test_opcua(OPCUA_DOCKER_IMAGE, DOCKER_TAG, OPCUA_DIR) }
           )
         }
 
         stage('Build Artifact') {
           parallel(
-              "opcua": { build_opcua(OPCUA_DOCKER_IMAGE, DOCKER_TAG, OPCUA_DOCKERFILE) }
+              "opcua": { build_opcua(OPCUA_DOCKER_IMAGE, DOCKER_TAG, OPCUA_DIR) }
           )
         }
 
@@ -38,27 +38,32 @@ timeout(time: 40, unit: 'MINUTES') {
   }
 }
 
-def test_opcua(image, tag, dockerfile) {
+def test_opcua(image, tag, directory) {
 
-  dockerBuild(
-      image: image,
-      tag: tag,
-      dockerfile: dockerfile,
-      use_cache: true,
-      push: false,
-      stage: "tester"
-  )
+  dir(directory) {
+    dockerBuild(
+        image: image,
+        tag: tag,
+        dockerfile: "Dockerfile",
+        use_cache: true,
+        push: false,
+        stage: "tester"
+    )
+  }
 }
-def build_opcua(image, tag, dockerfile) {
+def build_opcua(image, tag, directory) {
 
-  dockerBuild(
-      image: image,
-      tag: tag,
-      dockerfile: dockerfile,
-      use_cache: true,
-      push: true,
-      push_wait: true
-  )
+  dir(directory) {
+    dockerBuild(
+        image: image,
+        tag: tag,
+        dockerfile: "Dockerfile",
+        use_cache: true,
+        push: true,
+        push_wait: true
+    )
+  }
+
 }
 
 def notify_failure() {
