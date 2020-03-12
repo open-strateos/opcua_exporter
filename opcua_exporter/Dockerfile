@@ -1,4 +1,9 @@
-FROM golang:1.14.0-alpine3.11 as builder
+FROM golang:1.14.0 as tester
+COPY . /build
+WORKDIR /build
+RUN go test
+
+FROM golang:1.14.0 as builder
 COPY . /build
 WORKDIR /build
 RUN go build -o opcua_exporter main.go
