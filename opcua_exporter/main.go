@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gopcua/opcua"
+	opcua_debug "github.com/gopcua/opcua/debug"
 	"github.com/gopcua/opcua/monitor"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -26,6 +27,7 @@ var endpoint = flag.String("endpoint", "opc.tcp://localhost:4096", "OPC UA Endpo
 var promPrefix = flag.String("prom-prefix", "", "Prefix will be appended to emitted prometheus metrics")
 var nodeListFile = flag.String("config", "", "Path to a file from which to read the list of OPC UA nodes to monitor")
 var configB64 = flag.String("config-b64", "", "Base64-encoded config JSON. Overrides -config")
+var debug = flag.Bool("debug", false, "Enable debug logging")
 
 // Maps OPC UA channel names to prometheus Gauge instances
 type gaugeMap map[string]prometheus.Gauge
@@ -39,6 +41,7 @@ type Node struct {
 func main() {
 	fmt.Println("Starting up.")
 	flag.Parse()
+	opcua_debug.Enable = *debug
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -61,7 +64,7 @@ func main() {
 
 	client := getClient(endpoint)
 	if err := client.Connect(ctx); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error connecting to OPC UA client: %v", err)
 	}
 	defer client.Close()
 
@@ -174,5 +177,6 @@ func parseConfigJSON(config io.Reader) ([]Node, error) {
 
 	var nodes []Node
 	err = json.Unmarshal(content, &nodes)
+	log.Printf("Found %d nodes in config file.", len(nodes))
 	return nodes, err
 }
