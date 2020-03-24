@@ -124,6 +124,8 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]Node, metr
 					}
 				case int32:
 					floatVal = float64(value.(int32))
+				case float32:
+					floatVal = float64(value.(float32))
 				default:
 					log.Printf("Node %s has unhandled type %T", msg.NodeID.String(), v)
 					continue
