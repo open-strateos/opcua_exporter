@@ -111,7 +111,7 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]Node, metr
 			if msg.Error != nil {
 				log.Printf("[channel ] sub=%d error=%s", sub.SubscriptionID(), msg.Error)
 			} else if msg.Value == nil {
-				log.Printf("Nil value received for node %s", msg.NodeID)
+				log.Printf("nil value received for node %s", msg.NodeID)
 			} else {
 				log.Printf("[channel ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
 				metric := metricMap[msg.NodeID.String()]
