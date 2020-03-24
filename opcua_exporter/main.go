@@ -113,7 +113,22 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]Node, metr
 			} else {
 				log.Printf("[channel ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
 				metric := metricMap[msg.NodeID.String()]
-				metric.Set(float64(msg.Value.Value().(int32)))
+				value := msg.Value.Value()
+				var floatVal float64
+				switch v := value.(type) {
+				case bool:
+					if value.(bool) {
+						floatVal = 1.0
+					} else {
+						floatVal = 0.0
+					}
+				case int32:
+					floatVal = float64(value.(int32))
+				default:
+					log.Printf("Node %s has unhandled type %T", msg.NodeID.String(), v)
+					continue
+				}
+				metric.Set(floatVal)
 			}
 			time.Sleep(lag)
 		}
