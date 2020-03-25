@@ -42,3 +42,28 @@ func TestB64Config(t *testing.T) {
 	assert.Equal(t, testNodes[0].NodeName, results[0].NodeName)
 	assert.Equal(t, testNodes[0].MetricName, results[0].MetricName)
 }
+
+type floatTest struct {
+	input  interface{}
+	output float64
+}
+
+func TestCoerceToFloat(t *testing.T) {
+	testCases := []floatTest{
+		floatTest{2, 2.0},
+		floatTest{int64(25), 25.0},
+		floatTest{int32(33), 33.0},
+		floatTest{true, 1.0},
+		floatTest{false, 0.0},
+		floatTest{float32(8.8), float64(float32(8.8))}, // float32 --> float64 actually introduces rounding errors on the order of 1e-7
+	}
+	for _, testCase := range testCases {
+		result, err := coerceToFloat64(testCase.input)
+		assert.Nil(t, err)
+		assert.Equal(t, testCase.output, result)
+	}
+
+	_, err := coerceToFloat64("not a number")
+	assert.Error(t, err)
+
+}
