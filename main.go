@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/gopcua/opcua"
@@ -116,20 +117,9 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]Node, metr
 				log.Printf("[channel ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
 				metric := metricMap[msg.NodeID.String()]
 				value := msg.Value.Value()
-				var floatVal float64
-				switch v := value.(type) {
-				case bool:
-					if value.(bool) {
-						floatVal = 1.0
-					} else {
-						floatVal = 0.0
-					}
-				case int32:
-					floatVal = float64(value.(int32))
-				case float32:
-					floatVal = float64(value.(float32))
-				default:
-					log.Printf("Node %s has unhandled type %T", msg.NodeID.String(), v)
+				floatVal, floatErr := coerceToFloat64(value)
+				if floatErr != nil {
+					log.Printf("Unable to convert \"%v\" to float for node %s", value, msg.NodeID.String())
 					continue
 				}
 				metric.Set(floatVal)
@@ -137,6 +127,31 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]Node, metr
 			time.Sleep(lag)
 		}
 	}
+
+}
+
+/**
+* All prometheus metics are float64.
+* Since OPCUA message values have variable types, coerce them to float64, if possible.
+ */
+func coerceToFloat64(unknown interface{}) (float64, error) {
+	v := reflect.ValueOf(unknown)
+	v = reflect.Indirect(v)
+	if v.Type().Kind() == reflect.Bool {
+		b := v.Bool()
+		if b {
+			return 1.0, nil
+		} else {
+			return 0.0, nil
+		}
+	}
+
+	floatType := reflect.TypeOf(0.0)
+	if v.Type().ConvertibleTo(floatType) {
+		return v.Convert(floatType).Float(), nil
+	}
+
+	return 0.0, fmt.Errorf("Unfloatable type: %v", v.Type())
 
 }
 
