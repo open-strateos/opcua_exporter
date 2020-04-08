@@ -15,6 +15,11 @@ var testNodes = []NodeConfig{
 		NodeName:   "foo",
 		MetricName: "bar",
 	},
+	NodeConfig{
+		NodeName:   "baz",
+		MetricName: "bak",
+		ExtractBit: 4,
+	},
 }
 
 func TestReadNodeFile(t *testing.T) {
@@ -26,6 +31,9 @@ func TestReadNodeFile(t *testing.T) {
 	assert.IsType(t, NodeConfig{}, results[0])
 	assert.Equal(t, testNodes[0].NodeName, results[0].NodeName)
 	assert.Equal(t, testNodes[0].MetricName, results[0].MetricName)
+
+	assert.Nil(t, results[0].ExtractBit)
+	assert.Equal(t, 4.0, results[1].ExtractBit) // float64, because json
 
 	results, err = parseConfigJSON(strings.NewReader("foooob not valid json here"))
 	assert.Error(t, err)
@@ -48,30 +56,10 @@ type floatTest struct {
 	output float64
 }
 
-func TestCoerceToFloat(t *testing.T) {
-	testCases := []floatTest{
-		floatTest{2, 2.0},
-		floatTest{int64(25), 25.0},
-		floatTest{int32(33), 33.0},
-		floatTest{true, 1.0},
-		floatTest{false, 0.0},
-		floatTest{float32(8.8), float64(float32(8.8))}, // float32 --> float64 actually introduces rounding errors on the order of 1e-7
-	}
-	for _, testCase := range testCases {
-		result, err := coerceToFloat64(testCase.input)
-		assert.Nil(t, err)
-		assert.Equal(t, testCase.output, result)
-	}
-
-	_, err := coerceToFloat64("not a number")
-	assert.Error(t, err)
-
-}
-
 func TestExtractBit(t *testing.T) {
 	type extractTest struct {
 		value    interface{}
-		bit      uint8
+		bit      int
 		expected uint8
 	}
 
@@ -99,6 +87,7 @@ func TestExtractBit(t *testing.T) {
 
 	// Things that don't work here.
 	errorCases := []extractTest{
+		extractTest{0x11, -3, 0},          // bit argument is negative
 		extractTest{uint16(32768), 22, 0}, // bit out of range
 		extractTest{2.2, 7, 0},            // not an integer
 		extractTest{int16(3), 2, 0},       // signed integer

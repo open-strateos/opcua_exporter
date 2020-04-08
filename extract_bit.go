@@ -4,14 +4,18 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"unsafe"
 )
 
 /**
 * Extract a single bit from an integer value of unknown format, return a zero or one.
 * Returns an error if the value cannot be interpreted as some sort of integer.
 **/
-func extractBit(input interface{}, bit uint8) (uint8, error) {
-	bytes, typeError := uintToByteString(input)
+func extractBit(input interface{}, bit int) (uint8, error) {
+	if bit < 0 {
+		return 0, fmt.Errorf("Bit number must be positive. Got %d", bit)
+	}
+	bytes, typeError := uintToByteArray(input)
 	if typeError != nil {
 		return 0, typeError
 	}
@@ -19,7 +23,7 @@ func extractBit(input interface{}, bit uint8) (uint8, error) {
 	// decompose bit number into a byte index and a bit index within that byte
 	byteIdx := bit / 8
 	bitIdx := bit % 8
-	if byteIdx > uint8(len(bytes)-1) {
+	if byteIdx > len(bytes)-1 {
 		return 0, fmt.Errorf("Bit %d out of range for type %s ", bit, reflect.TypeOf(input))
 	}
 	bite := bytes[byteIdx]
@@ -30,7 +34,7 @@ func extractBit(input interface{}, bit uint8) (uint8, error) {
 /**
 * Convert an unsigned integer to a little-endian byte array
 **/
-func uintToByteString(unknown interface{}) ([]byte, error) {
+func uintToByteArray(unknown interface{}) ([]byte, error) {
 	var buf []byte
 	switch t := unknown.(type) {
 	case uint8:
@@ -51,4 +55,14 @@ func uintToByteString(unknown interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("Type was %s, butintToByteString only handles unsigned integer types", reflect.TypeOf(t))
 	}
 	return buf, nil
+}
+
+func intToByteArray(num int64) []byte {
+	size := int(unsafe.Sizeof(num))
+	arr := make([]byte, size)
+	for i := 0; i < size; i++ {
+		byt := *(*uint8)(unsafe.Pointer(uintptr(unsafe.Pointer(&num)) + uintptr(i)))
+		arr[i] = byt
+	}
+	return arr
 }

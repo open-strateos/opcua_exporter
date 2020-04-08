@@ -13,12 +13,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"time"
 
 	"github.com/gopcua/opcua"
 	opcua_debug "github.com/gopcua/opcua/debug"
 	"github.com/gopcua/opcua/monitor"
+	"github.com/gopcua/opcua/ua"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -30,13 +30,26 @@ var nodeListFile = flag.String("config", "", "Path to a file from which to read 
 var configB64 = flag.String("config-b64", "", "Base64-encoded config JSON. Overrides -config")
 var debug = flag.Bool("debug", false, "Enable debug logging")
 
-// Maps OPC UA channel names to prometheus Gauge instances
-type gaugeMap map[string]prometheus.Gauge
+// NodeConfig : Structure for representing OPCUA nodes to monitor.
+type NodeConfig struct {
+	NodeName   string      // OPC UA node identifier
+	MetricName string      // Prometheus metric name to emit
+	ExtractBit interface{} // Optional numeric value. If present and positive, extract just this bit and emit it as a boolean metric
+}
 
-// Structure for representing OPCUA nodes to monitor.
-type Node struct {
-	NodeName   string // OPC UA node identifier
-	MetricName string // Prometheus metric name to emit
+// MsgHandler interface can convert OPC UA Variant objects
+// and emit prometheus metrics
+type MsgHandler interface {
+	FloatValue(v ua.Variant) (float64, error) // metric value to be emitted
+	Handle(v ua.Variant) error                // compute the metric value and publish it
+}
+
+// HandlerMap maps OPC UA channel names to MsgHandlers
+type HandlerMap map[string]handlerMapRecord
+
+type handlerMapRecord struct {
+	config  NodeConfig
+	handler MsgHandler
 }
 
 func main() {
@@ -47,7 +60,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var nodes []Node
+	var nodes []NodeConfig
 	var readError error
 	if *configB64 != "" {
 		log.Print("Using base64-encoded config")
@@ -84,7 +97,7 @@ func getClient(endpoint *string) *opcua.Client {
 }
 
 // Subscribe to all the nodes and update the appropriate prometheus metrics on change
-func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]Node, metricMap gaugeMap) {
+func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig, handlerMap HandlerMap) {
 	m, err := monitor.NewNodeMonitor(client)
 	if err != nil {
 		log.Fatal(err)
@@ -115,43 +128,13 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]Node, metr
 				log.Printf("nil value received for node %s", msg.NodeID)
 			} else {
 				log.Printf("[channel ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
-				metric := metricMap[msg.NodeID.String()]
-				value := msg.Value.Value()
-				floatVal, floatErr := coerceToFloat64(value)
-				if floatErr != nil {
-					log.Printf("Unable to convert \"%v\" to float for node %s", value, msg.NodeID.String())
-					continue
-				}
-				metric.Set(floatVal)
+				handler := handlerMap[msg.NodeID.String()].handler
+				value := msg.Value
+				handler.Handle(*value)
 			}
 			time.Sleep(lag)
 		}
 	}
-
-}
-
-/**
-* All prometheus metics are float64.
-* Since OPCUA message values have variable types, coerce them to float64, if possible.
- */
-func coerceToFloat64(unknown interface{}) (float64, error) {
-	v := reflect.ValueOf(unknown)
-	v = reflect.Indirect(v)
-	if v.Type().Kind() == reflect.Bool {
-		b := v.Bool()
-		if b {
-			return 1.0, nil
-		} else {
-			return 0.0, nil
-		}
-	}
-
-	floatType := reflect.TypeOf(0.0)
-	if v.Type().ConvertibleTo(floatType) {
-		return v.Convert(floatType).Float(), nil
-	}
-
-	return 0.0, fmt.Errorf("Unfloatable type: %v", v.Type())
 
 }
 
@@ -161,27 +144,33 @@ func cleanup(sub *monitor.Subscription) {
 }
 
 // Initialize a Prometheus gauge for each node. Return them as a map.
-func createMetrics(nodeList *[]Node) gaugeMap {
-	metricMap := make(gaugeMap)
-	for _, node := range *nodeList {
-		nodeName := node.NodeName
-		metricName := node.MetricName
-		if *promPrefix != "" {
-			metricName = fmt.Sprintf("%s_%s", *promPrefix, metricName)
-		}
-		g := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: metricName,
-			Help: "From OPC UA",
-		})
-		prometheus.MustRegister(g)
-		metricMap[nodeName] = g
+func createMetrics(nodeConfigs *[]NodeConfig) HandlerMap {
+	handlerMap := make(HandlerMap)
+	for _, nodeConfig := range *nodeConfigs {
+		nodeName := nodeConfig.NodeName
+		metricName := nodeConfig.MetricName
+		handlerMap[nodeName] = handlerMapRecord{nodeConfig, createHandler(nodeConfig)}
 		log.Printf("Created prom metric %s for OPC UA node %s", metricName, nodeName)
 	}
 
-	return metricMap
+	return handlerMap
 }
 
-func readConfigFile(path string) ([]Node, error) {
+func createHandler(nodeConfig NodeConfig) MsgHandler {
+	metricName := nodeConfig.MetricName
+	if *promPrefix != "" {
+		metricName = fmt.Sprintf("%s_%s", *promPrefix, metricName)
+	}
+	g := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: metricName,
+		Help: "From OPC UA",
+	})
+	prometheus.MustRegister(g)
+	handler := OpcValueHandler{g}
+	return handler
+}
+
+func readConfigFile(path string) ([]NodeConfig, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -195,7 +184,7 @@ func readConfigFile(path string) ([]Node, error) {
 	return parseConfigJSON(f)
 }
 
-func readConfigBase64(encodedConfig *string) ([]Node, error) {
+func readConfigBase64(encodedConfig *string) ([]NodeConfig, error) {
 	config, decodeErr := base64.StdEncoding.DecodeString(*encodedConfig)
 	if decodeErr != nil {
 		log.Fatal(decodeErr)
@@ -203,13 +192,13 @@ func readConfigBase64(encodedConfig *string) ([]Node, error) {
 	return parseConfigJSON(bytes.NewReader(config))
 }
 
-func parseConfigJSON(config io.Reader) ([]Node, error) {
+func parseConfigJSON(config io.Reader) ([]NodeConfig, error) {
 	content, err := ioutil.ReadAll(config)
 	if err != nil {
 		return nil, err
 	}
 
-	var nodes []Node
+	var nodes []NodeConfig
 	err = json.Unmarshal(content, &nodes)
 	log.Printf("Found %d nodes in config file.", len(nodes))
 	return nodes, err
