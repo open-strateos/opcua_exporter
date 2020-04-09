@@ -27,7 +27,7 @@ func (h OpcuaBitVectorHandler) Handle(v ua.Variant) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Extracted bit number %d: value=%d\n", h.extractBit, int(floatVal))
+	log.Printf("Extracted bit number %d: value=%d", h.extractBit, int(floatVal))
 	h.gauge.Set(floatVal)
 	return nil
 }
