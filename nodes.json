@@ -14,6 +14,11 @@
     {
         "nodeName": "ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Alarms[3]",
         "metricName": "lift_station_alarm_3"
+    },
+    {
+        "nodeName": "ns=1;s=[L2S2_TMCP]Lift_Station_Consume.Status[1]",
+        "extractBit": 16,
+        "metricName": "lift_station_common_alarm"
     }
 ]
 
