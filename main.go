@@ -53,7 +53,7 @@ type handlerMapRecord struct {
 }
 
 func main() {
-	fmt.Println("Starting up.")
+	log.Print("Starting up.")
 	flag.Parse()
 	opcua_debug.Enable = *debug
 
@@ -87,7 +87,7 @@ func main() {
 
 	http.Handle("/metrics", promhttp.Handler())
 	var listenOn = fmt.Sprintf(":%d", *port)
-	fmt.Println(fmt.Sprintf("Serving metrics on %s", listenOn))
+	log.Printf("Serving metrics on %s", listenOn)
 	log.Fatal(http.ListenAndServe(listenOn, nil))
 }
 
@@ -132,7 +132,7 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig
 				value := msg.Value
 				err = handler.Handle(*value)
 				if err != nil {
-					fmt.Printf("Error handling opcua value: %s\n", err)
+					log.Printf("Error handling opcua value: %s\n", err)
 				}
 			}
 			time.Sleep(lag)
