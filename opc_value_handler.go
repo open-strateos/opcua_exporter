@@ -26,10 +26,9 @@ func ( h OpcValueHandler) Handle (v ua.Variant) error {
 	return nil
 }
 
-/**
-* All prometheus metics are float64.
-* Since OPCUA message values have variable types, sort out how to convert them to float.
- */
+// FloatValue converts a ua.Variant to float64
+// All prometheus metics are float64.
+// Since OPCUA message values have variable types, sort out how to convert them to float.
 func (h OpcValueHandler) FloatValue(v ua.Variant) (float64, error) {
 	switch v.Type() {
 	case ua.TypeIDNull:
@@ -57,7 +56,6 @@ func boolToFloat (v interface{}) (float64, error) {
 }
 
  func coerceToFloat64(unknown interface{}) (float64, error) {
-	fmt.Printf("Coercing to float: %v\n", unknown)
 	v := reflect.ValueOf(unknown)
 	v = reflect.Indirect(v)
 

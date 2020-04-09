@@ -123,14 +123,17 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig
 			return
 		case msg := <-ch:
 			if msg.Error != nil {
-				log.Printf("[channel ] sub=%d error=%s", sub.SubscriptionID(), msg.Error)
+				log.Printf("[channel ] sub=%d error=%s\n", sub.SubscriptionID(), msg.Error)
 			} else if msg.Value == nil {
-				log.Printf("nil value received for node %s", msg.NodeID)
+				log.Printf("nil value received for node %s\n", msg.NodeID)
 			} else {
-				log.Printf("[channel ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
+				log.Printf("[channel ] sub=%d ts=%s node=%s value=%v\n", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
 				handler := handlerMap[msg.NodeID.String()].handler
 				value := msg.Value
-				handler.Handle(*value)
+				err = handler.Handle(*value)
+				if err != nil {
+					fmt.Printf("Error handling opcua value: %s\n", err)
+				}
 			}
 			time.Sleep(lag)
 		}
@@ -166,7 +169,13 @@ func createHandler(nodeConfig NodeConfig) MsgHandler {
 		Help: "From OPC UA",
 	})
 	prometheus.MustRegister(g)
-	handler := OpcValueHandler{g}
+	var handler MsgHandler
+	if nodeConfig.ExtractBit != nil {
+		extractBit := int(nodeConfig.ExtractBit.(float64)) // JSON numbers are float64 by default
+		handler = OpcuaBitVectorHandler{g, extractBit}
+	} else {
+		handler = OpcValueHandler{g}
+	}
 	return handler
 }
 
