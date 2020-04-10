@@ -53,7 +53,7 @@ type handlerMapRecord struct {
 }
 
 func main() {
-	fmt.Println("Starting up.")
+	log.Print("Starting up.")
 	flag.Parse()
 	opcua_debug.Enable = *debug
 
@@ -87,7 +87,7 @@ func main() {
 
 	http.Handle("/metrics", promhttp.Handler())
 	var listenOn = fmt.Sprintf(":%d", *port)
-	fmt.Println(fmt.Sprintf("Serving metrics on %s", listenOn))
+	log.Printf("Serving metrics on %s", listenOn)
 	log.Fatal(http.ListenAndServe(listenOn, nil))
 }
 
@@ -130,7 +130,10 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig
 				log.Printf("[channel ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
 				handler := handlerMap[msg.NodeID.String()].handler
 				value := msg.Value
-				handler.Handle(*value)
+				err = handler.Handle(*value)
+				if err != nil {
+					log.Printf("Error handling opcua value: %s\n", err)
+				}
 			}
 			time.Sleep(lag)
 		}
@@ -166,7 +169,14 @@ func createHandler(nodeConfig NodeConfig) MsgHandler {
 		Help: "From OPC UA",
 	})
 	prometheus.MustRegister(g)
-	handler := OpcValueHandler{g}
+
+	var handler MsgHandler
+	if nodeConfig.ExtractBit != nil {
+		extractBit := int(nodeConfig.ExtractBit.(float64)) // JSON numbers are float64 by default
+		handler = OpcuaBitVectorHandler{g, extractBit}
+	} else {
+		handler = OpcValueHandler{g}
+	}
 	return handler
 }
 
