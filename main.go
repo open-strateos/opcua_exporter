@@ -52,6 +52,19 @@ type handlerMapRecord struct {
 	handler MsgHandler
 }
 
+var startTime = time.Now()
+var uptimeGauge prometheus.Gauge
+
+func init() {
+	uptimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Subsystem: "opcua_exporter",
+		Name:      "uptime_seconds",
+		Help:      "Time in seconds since the OPCUA exporter started",
+	})
+	uptimeGauge.Set(time.Now().Sub(startTime).Seconds())
+	prometheus.MustRegister(uptimeGauge)
+}
+
 func main() {
 	log.Print("Starting up.")
 	flag.Parse()
@@ -118,6 +131,7 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig
 
 	lag := time.Millisecond * 10
 	for {
+		uptimeGauge.Set(time.Now().Sub(startTime).Seconds())
 		select {
 		case <-ctx.Done():
 			return
