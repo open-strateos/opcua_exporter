@@ -30,7 +30,7 @@ var nodeListFile = flag.String("config", "", "Path to a file from which to read 
 var configB64 = flag.String("config-b64", "", "Base64-encoded config JSON. Overrides -config")
 var debug = flag.Bool("debug", false, "Enable debug logging")
 var readTimeout = flag.Duration("read-timeout", 5*time.Second, "Timeout when waiting for OPCUA subscription messages")
-var maxTimeouts = flag.Int("max-timeouts", 30, "The exporter will quit trying after this many read timeouts.")
+var maxTimeouts = flag.Int("max-timeouts", 30, "The exporter will quit trying after this many read timeouts (0 to disable).")
 
 // NodeConfig : Structure for representing OPCUA nodes to monitor.
 type NodeConfig struct {
@@ -154,9 +154,9 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig
 			}
 			time.Sleep(lag)
 		case <-time.After(*readTimeout):
-			log.Printf("Timeout wating for subscription messages")
 			timeoutCount++
-			if timeoutCount >= *maxTimeouts {
+			log.Printf("Timeout %d wating for subscription messages", timeoutCount)
+			if *maxTimeouts > 0 && timeoutCount >= *maxTimeouts {
 				log.Fatalf("Max timeouts (%d) exceeded. Quitting.", *maxTimeouts)
 			}
 		}
