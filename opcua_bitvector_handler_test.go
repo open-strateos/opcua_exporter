@@ -14,12 +14,11 @@ func getTestExtractHandler(extractBit int) OpcuaBitVectorHandler {
 	return OpcuaBitVectorHandler{g, extractBit}
 }
 
-
 func TestHandleBitVector(t *testing.T) {
 	type testCase struct {
 		value interface{}
-		bit int
-		want float64
+		bit   int
+		want  float64
 	}
 
 	testCases := []testCase{
@@ -67,7 +66,7 @@ func TestHandleBitVector(t *testing.T) {
 
 	// Various non-integer objects shold error out
 	type errorCase struct {
-		value interface{}
+		value      interface{}
 		extractBit int
 	}
 	errorCases := []errorCase{
@@ -89,7 +88,7 @@ func TestHandleBitVector(t *testing.T) {
 func TestVariantToByteArray(t *testing.T) {
 	type testCase struct {
 		value interface{}
-		want []byte
+		want  []byte
 	}
 
 	testCases := []testCase{

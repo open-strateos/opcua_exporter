@@ -1,9 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
-	"errors"
 
 	"github.com/gopcua/opcua/ua"
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,8 +17,8 @@ type OpcValueHandler struct {
 
 // Handle the message by deturmingint the float value
 // and emiting it as a gauge metric
-func ( h OpcValueHandler) Handle (v ua.Variant) error {
-	floatVal, err := h.FloatValue(v) 
+func (h OpcValueHandler) Handle(v ua.Variant) error {
+	floatVal, err := h.FloatValue(v)
 	if err != nil {
 		return err
 	}
@@ -32,15 +32,15 @@ func ( h OpcValueHandler) Handle (v ua.Variant) error {
 func (h OpcValueHandler) FloatValue(v ua.Variant) (float64, error) {
 	switch v.Type() {
 	case ua.TypeIDNull:
-			return 0.0, errors.New("Can not convert null value to float64")
-		case ua.TypeIDBoolean:
-			return boolToFloat(v.Value())
-		default:
-			return coerceToFloat64(v.Value())
+		return 0.0, errors.New("Can not convert null value to float64")
+	case ua.TypeIDBoolean:
+		return boolToFloat(v.Value())
+	default:
+		return coerceToFloat64(v.Value())
 	}
 }
 
-func boolToFloat (v interface{}) (float64, error) {
+func boolToFloat(v interface{}) (float64, error) {
 	reflectedVal := reflect.ValueOf(v)
 	reflectedVal = reflect.Indirect(reflectedVal)
 
@@ -55,7 +55,7 @@ func boolToFloat (v interface{}) (float64, error) {
 	}
 }
 
- func coerceToFloat64(unknown interface{}) (float64, error) {
+func coerceToFloat64(unknown interface{}) (float64, error) {
 	v := reflect.ValueOf(unknown)
 	v = reflect.Indirect(v)
 
