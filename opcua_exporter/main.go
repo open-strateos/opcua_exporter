@@ -30,7 +30,7 @@ var nodeListFile = flag.String("config", "", "Path to a file from which to read 
 var configB64 = flag.String("config-b64", "", "Base64-encoded config JSON. Overrides -config")
 var debug = flag.Bool("debug", false, "Enable debug logging")
 var readTimeout = flag.Duration("read-timeout", 5*time.Second, "Timeout when waiting for OPCUA subscription messages")
-var maxTimeouts = flag.Int("max-timeouts", 30, "The exporter will quit trying after this many read timeouts (0 to disable).")
+var maxTimeouts = flag.Int("max-timeouts", 0, "The exporter will quit trying after this many read timeouts (0 to disable).")
 
 // NodeConfig : Structure for representing OPCUA nodes to monitor.
 type NodeConfig struct {
