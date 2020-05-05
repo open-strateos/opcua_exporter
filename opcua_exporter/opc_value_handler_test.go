@@ -16,7 +16,7 @@ func getTestHandler() OpcValueHandler {
 func TestCoerceBooleanValues(t *testing.T) {
 	handler := getTestHandler()
 
-	variant, _  := ua.NewVariant(true)
+	variant, _ := ua.NewVariant(true)
 	res, err := handler.FloatValue(*variant)
 	assert.Nil(t, err)
 	assert.Equal(t, 1.0, res)
@@ -46,7 +46,7 @@ func TestCoerceNumericValues(t *testing.T) {
 		floatTest{uint32(33), 33.0},
 		floatTest{uint64(25), 25.0},
 		floatTest{float32(8.8), float64(float32(8.8))}, // float32 --> float64 actually introduces rounding errors on the order of 1e-7
-		floatTest{float64(238.4), 238.4}, // float32 --> float64 actually introduces rounding errors on the order of 1e-7
+		floatTest{float64(238.4), 238.4},               // float32 --> float64 actually introduces rounding errors on the order of 1e-7
 	}
 	for _, testCase := range testCases {
 		variant, e := ua.NewVariant(testCase.input)
