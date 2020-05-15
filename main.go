@@ -92,8 +92,11 @@ func main() {
 	}
 
 	client := getClient(endpoint)
+	log.Printf("Connecting to OPCUA server at %s", *endpoint)
 	if err := client.Connect(ctx); err != nil {
 		log.Fatalf("Error connecting to OPC UA client: %v", err)
+	} else {
+		log.Print("Connected successfully")
 	}
 	defer client.Close()
 
