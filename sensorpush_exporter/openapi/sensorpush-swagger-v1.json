@@ -1,0 +1,1112 @@
+{
+  "basePath": "/api/v1",
+  "definitions": {
+    "AccessTokenRequest": {
+      "description": "Request object for an oAuth accesstoken code.",
+      "properties": {
+        "authorization": {
+          "description": "Authorization code recieved from the oauth/authorize service.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AccessTokenResponse": {
+      "description": "Response object for an oAuth authorization code.",
+      "properties": {
+        "accesstoken": {
+          "description": "JWT oAuth accesstoken. Pass this code to the data services via the http header 'Authorization'. Example 'Authorization' : 'Bearer <access token>'",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AuthorizeRequest": {
+      "description": "Request object for an oAuth authorization code.",
+      "properties": {
+        "email": {
+          "description": "Email associated with a valid account.",
+          "type": "string"
+        },
+        "password": {
+          "description": "Password associated with the email.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AuthorizeResponse": {
+      "description": "Response object for an oAuth authorization code.",
+      "properties": {
+        "authorization": {
+          "description": "JWT oAuth authorization code. Pass this code to the oauth/accesscode service to request an access token. The [jwt](https://jwt.io/) website has a useful jwt viewer.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Error": {
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      },
+      "title": "Error Schema",
+      "type": "object"
+    },
+    "Gateway": {
+      "properties": {
+        "last_alert": {
+          "description": "Date last alert was sent",
+          "format": "date-time",
+          "type": "string"
+        },
+        "last_seen": {
+          "description": "Date the gateway was last seen",
+          "format": "date-time",
+          "type": "string"
+        },
+        "message": {
+          "description": "Detailed message associated with the gateway status.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name associated with a gateway",
+          "type": "string"
+        },
+        "paired": {
+          "description": "Gateway is paired with a bluetooth device",
+          "type": "string"
+        },
+        "samples": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Sample"
+          },
+          "description": "Samples associated with SensorPush gateway",
+          "type": "object"
+        },
+        "version": {
+          "description": "Version of Sensorpush software",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Gateways": {
+      "additionalProperties": {
+        "$ref": "#/definitions/Gateway"
+      },
+      "description": "Map of registered SensorPush gateways",
+      "type": "object"
+    },
+    "GatewaysRequest": {
+      "description": "Request object for gateways.",
+      "properties": {
+        "format": {
+          "description": "Returns the results as the specified format (csv|json). Defaults to json",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ListResponse": {
+      "properties": {
+        "files": {
+          "items": {
+            "$ref": "#/definitions/ReportListing"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "ReportListing": {
+      "properties": {
+        "last_modified": {
+          "description": "Date file was last modified",
+          "format": "date-time",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the file",
+          "type": "string"
+        },
+        "size": {
+          "description": "File size",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ReportsRequest": {
+      "description": "Request object for reports.",
+      "properties": {
+        "path": {
+          "description": "The directory path to perform this operation.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Sample": {
+      "properties": {
+        "humidity": {
+          "type": "number"
+        },
+        "observed": {
+          "description": "Date time when sample was observed.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "temperature": {
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "Samples": {
+      "description": "Map of registered SensorPush sensors",
+      "properties": {
+        "last_time": {
+          "description": "Timestamp of the last sample returned. Use this as the start_ts to query for the next page of samples.",
+          "type": "number"
+        },
+        "sensors": {
+          "additionalProperties": {
+            "items": {
+              "$ref": "#/definitions/Sample"
+            },
+            "type": "array"
+          },
+          "description": "Map of sensors and the associated samples.",
+          "type": "object"
+        },
+        "status": {
+          "description": "Message describing state of the api call.",
+          "type": "string"
+        },
+        "total_samples": {
+          "description": "Total number of samples across all sensors",
+          "type": "number"
+        },
+        "total_sensors": {
+          "description": "Total number of sensors returned",
+          "type": "number"
+        },
+        "truncated": {
+          "description": "The query returned too many results, causing the sample list to be truncated. Consider adjusting the limit or startTime parameters.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "SamplesRequest": {
+      "description": "Request object for samples.",
+      "properties": {
+        "active": {
+          "description": "Filters sensors by active = (true|false). Defaults to true",
+          "type": "boolean"
+        },
+        "bulk": {
+          "description": "Queries that return large results are truncated (see comments on Samples endpoint). Set this flag to true for large reports. The report request will be queued and processed within 24 hours. Upon completion, the primary account holder will recieve an email with a link for download.",
+          "type": "boolean"
+        },
+        "format": {
+          "description": "Returns the results as the specified format (csv|json). Defaults to json",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Number of samples to return.",
+          "type": "integer"
+        },
+        "sensors": {
+          "description": "Filters samples by sensor id. This will be the same id returned in the sensors api call. The parameter value must be a list of strings. Example: sensors: [\"123.56789\"].",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "startTime": {
+          "description": "Start time to find samples (example: 2019-04-07T00:00:00-0400). Leave blank or zero to get the most recent samples.",
+          "type": "string"
+        },
+        "stopTime": {
+          "description": "Stop time to find samples (example: 2019-04-07T10:30:00-0400). Leave blank or zero to get the most recent samples.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Sensor": {
+      "properties": {
+        "active": {
+          "description": "Is the sensor active?",
+          "type": "boolean"
+        },
+        "address": {
+          "description": "MAC address",
+          "type": "string"
+        },
+        "alerts": {
+          "description": "Alert settings",
+          "properties": {
+            "humidity": {
+              "description": "alert settings for humidity",
+              "properties": {
+                "enabled": {
+                  "description": "Is enabled?",
+                  "type": "boolean"
+                },
+                "max": {
+                  "description": "Max threshold for alert",
+                  "type": "number"
+                },
+                "min": {
+                  "description": "Min threshold for alert",
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            },
+            "temperature": {
+              "description": "alert settings for temperature",
+              "properties": {
+                "enabled": {
+                  "description": "Is enabled?",
+                  "type": "boolean"
+                },
+                "max": {
+                  "description": "Max threshold for alert",
+                  "type": "number"
+                },
+                "min": {
+                  "description": "Min threshold for alert",
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "battery_voltage": {
+          "description": "Current battery voltage",
+          "type": "number"
+        },
+        "calibration": {
+          "description": "Calibration settings",
+          "properties": {
+            "humidity": {
+              "description": "Humidity calibration",
+              "type": "number"
+            },
+            "temperature": {
+              "description": "Temperature calibration",
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "deviceId": {
+          "description": "Short device Id",
+          "type": "string"
+        },
+        "id": {
+          "description": "Long device Id",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the sensor sensor",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Sensors": {
+      "additionalProperties": {
+        "$ref": "#/definitions/Sensor"
+      },
+      "description": "Map of registered SensorPush sensors",
+      "type": "object"
+    },
+    "SensorsRequest": {
+      "description": "Request object for sensors.",
+      "properties": {
+        "active": {
+          "description": "filters sensors by active = (true|false). Defaults to true",
+          "type": "boolean"
+        },
+        "format": {
+          "description": "Returns the results as the specified format (csv|json). Defaults to json",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Status": {
+      "properties": {
+        "deployed": {
+          "description": "Date time when this service was last updated.",
+          "type": "string"
+        },
+        "message": {
+          "description": "Greeting message.",
+          "type": "string"
+        },
+        "ms": {
+          "description": "Current date time on the server in milliseconds.",
+          "type": "integer"
+        },
+        "stack": {
+          "description": "Active stack hosting this service.",
+          "type": "string"
+        },
+        "status": {
+          "description": "Current status of the api service.",
+          "type": "string"
+        },
+        "time": {
+          "description": "Current date time on the server.",
+          "type": "string"
+        },
+        "version": {
+          "description": "Version of this service currently deployed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "type": "object"
+    },
+    "TokenRequest": {
+      "description": "Request object for an oAuth accesstoken code.",
+      "properties": {
+        "client_id": {
+          "description": "Client Id assigned to 3rd party applications. Contact support@sensorpush.com to register you app.",
+          "type": "string"
+        },
+        "client_secret": {
+          "description": "Password associated with the client_id",
+          "type": "string"
+        },
+        "code": {
+          "description": "This can be an authorization, access, or refresh token. Depending on which grant_type you are using.",
+          "type": "string"
+        },
+        "grant_type": {
+          "description": "Accepted values are password, refresh_token, and access_token",
+          "type": "string"
+        },
+        "password": {
+          "description": "User's password",
+          "type": "string"
+        },
+        "redirect_uri": {
+          "description": "Redirection url to the 3rd party application once the user has signed into the sensorpush logon. This value should be URL encoded.",
+          "type": "string"
+        },
+        "refresh_token": {
+          "description": "Refresh token used to request new access tokens.",
+          "type": "string"
+        },
+        "username": {
+          "description": "Email of the user to sign in.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "TokenResponse": {
+      "description": "Response object for an oAuth authorization code.",
+      "properties": {
+        "access_token": {
+          "description": "JWT oAuth access token. Pass this token to the data services via the http header 'Authorization'. Example 'Authorization' : 'Bearer <access token>'",
+          "type": "string"
+        },
+        "expires_in": {
+          "description": "TTL of the token in seconds",
+          "type": "number"
+        },
+        "refresh_token": {
+          "description": "JWT oAuth refresh token. Pass this token to the token service to retrieve a new access token.",
+          "type": "string"
+        },
+        "token_type": {
+          "description": "Type of token returned",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "externalDocs": {
+    "description": "Public API Docs",
+    "url": "https://api.sensorpush.com/api/v1/support/docs"
+  },
+  "host": "api.sensorpush.com",
+  "info": {
+    "contact": {
+      "email": "support@sensorpush.com"
+    },
+    "description": "This is a swagger definition for the SensorPush public REST API. Download the definition file [here](https://api.sensorpush.com/api/v1/support/swagger/swagger-v1.json).",
+    "license": {
+      "name": "SensorPush License",
+      "url": "http://www.sensorpush.com/legal/info"
+    },
+    "termsOfService": "http://www.sensorpush.com/legal/info",
+    "title": "SensorPush Public API",
+    "version": "v1.0.20200621"
+  },
+  "paths": {
+    "/": {
+      "post": {
+        "description": "This service is used as a simple method for clients to verify they can connect to the API.",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "summary": "SensorPush API status",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/devices/gateways": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "This service will return an inventory of all registered gateways for this account.",
+        "operationId": "Gateways",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "GatewaysRequest",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GatewaysRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "schema": {
+              "$ref": "#/definitions/Gateways"
+            }
+          },
+          "400": {
+            "description": "400 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "500 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth": [
+            ]
+          }
+        ],
+        "summary": "Lists all gateways.",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/devices/sensors": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "This service will return an inventory of all registered sensors for this account.",
+        "operationId": "Sensors",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "SensorsRequest",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SensorsRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "schema": {
+              "$ref": "#/definitions/Sensors"
+            }
+          },
+          "400": {
+            "description": "400 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "500 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth": [
+            ]
+          }
+        ],
+        "summary": "Lists all sensors.",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/oauth/accesstoken": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "This is a simplified version of oAuth in that it only supports accesstokens and does not require a client_id. See the endpoint '/api/v1/oauth/token' for the more advanced oAuth endpoint. Once a user has been authorized, the client app will call this service to receive the access token. The access token will be used to grant permissions to data stores. An access token expires every hour. After that, request a new access token.",
+        "operationId": "AccessToken",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "AccessTokenRequest",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AccessTokenRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/AccessTokenResponse"
+            }
+          },
+          "400": {
+            "description": "400 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "500 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        },
+        "summary": "Request a temporary oAuth access code.",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/oauth/authorize": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "Sign into the SensorPush API via redirect to SensorPush logon. Then signin using email/password, or an api id. This service will return an oAuth authorization code that can be exchanged for an oAuth access token using the accesstoken service.",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "AuthorizeRequest",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AuthorizeRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/AuthorizeResponse"
+            }
+          },
+          "400": {
+            "description": "400 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "403": {
+            "description": "invalid user"
+          },
+          "500": {
+            "description": "500 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        },
+        "summary": "Sign in and request an authorization code",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/oauth/token": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "This is a more advanced endpoint that implements the oAuth 2.0 specification. Supports grant_types: password, refresh_token, and access_token. If grant_type is null an access_token will be returned. (see <a href=\"https://oauth.net/2/grant-types/\">oAuth Grant Types</a>). A client_id is required for this endpoint. Contact support@sensorpush.com to register your application and recieve a client_id.",
+        "operationId": "Token",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "TokenRequest",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/TokenRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/TokenResponse"
+            }
+          },
+          "400": {
+            "description": "400 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "500 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        },
+        "summary": "oAuth 2.0 for authorization, access, and refresh tokens",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/reports/download": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "This service will download bulk generated reports.",
+        "operationId": "Download",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "ReportsRequest",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ReportsRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response"
+          },
+          "400": {
+            "description": "400 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "500 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth": [
+            ]
+          }
+        ],
+        "summary": "Download bulk reports.",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/reports/list": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "This service will list all bulk generated reports available to download.",
+        "operationId": "List",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "ReportsRequest",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ReportsRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "schema": {
+              "$ref": "#/definitions/ListResponse"
+            }
+          },
+          "400": {
+            "description": "400 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "500 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth": [
+            ]
+          }
+        ],
+        "summary": "Lists reports available for download.",
+        "tags": [
+          "Api"
+        ]
+      }
+    },
+    "/samples": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "description": "This service is used to query for samples persisted by the sensors. The service will return all samples after the given parameter {startTime}. Queries that produce greater than ~5MB of data will be truncated. If results return truncated, consider using the sensors parameter list. This will allow you to retrieve more data per sensor. For example, a query that does not provide a sensor list, will attempt to return equal amounts of data for all sensors (i.e. ~5MB divided by N sensors). However, if one sensor is specified, than all ~5MB will be filled for that one sensor (i.e. ~5MB divided by 1). Another option is to paginate through results by time, using {startTime} as the last date in your previous page of results.",
+        "operationId": "Samples",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "SamplesRequest",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SamplesRequest"
+            }
+          }
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "schema": {
+              "$ref": "#/definitions/Samples"
+            }
+          },
+          "400": {
+            "description": "400 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "500": {
+            "description": "500 response",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth": [
+            ]
+          }
+        ],
+        "summary": "Queries for sensor samples.",
+        "tags": [
+          "Api"
+        ]
+      }
+    }
+  },
+  "schemes": [
+    "https"
+  ],
+  "securityDefinitions": {
+    "oauth": {
+      "description": "This header value grants temporary access to data resources. Use the accesstoken value returned by the accesstoken service.",
+      "in": "header",
+      "name": "Authorization",
+      "type": "apiKey"
+    }
+  },
+  "swagger": "2.0"
+}

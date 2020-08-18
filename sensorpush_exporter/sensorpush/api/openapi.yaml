@@ -1,0 +1,956 @@
+openapi: 3.0.1
+info:
+  contact:
+    email: support@sensorpush.com
+  description: This is a swagger definition for the SensorPush public REST API. Download
+    the definition file [here](https://api.sensorpush.com/api/v1/support/swagger/swagger-v1.json).
+  license:
+    name: SensorPush License
+    url: http://www.sensorpush.com/legal/info
+  termsOfService: http://www.sensorpush.com/legal/info
+  title: SensorPush Public API
+  version: v1.0.20200621
+externalDocs:
+  description: Public API Docs
+  url: https://api.sensorpush.com/api/v1/support/docs
+servers:
+- url: https://api.sensorpush.com/api/v1
+paths:
+  /:
+    post:
+      description: This service is used as a simple method for clients to verify they
+        can connect to the API.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+          description: 200 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      summary: SensorPush API status
+      tags:
+      - Api
+  /devices/gateways:
+    post:
+      description: This service will return an inventory of all registered gateways
+        for this account.
+      operationId: Gateways
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GatewaysRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gateways'
+          description: 200 response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 400 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 500 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      security:
+      - oauth: []
+      summary: Lists all gateways.
+      tags:
+      - Api
+      x-codegen-request-body-name: GatewaysRequest
+  /devices/sensors:
+    post:
+      description: This service will return an inventory of all registered sensors
+        for this account.
+      operationId: Sensors
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SensorsRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sensors'
+          description: 200 response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 400 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 500 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      security:
+      - oauth: []
+      summary: Lists all sensors.
+      tags:
+      - Api
+      x-codegen-request-body-name: SensorsRequest
+  /oauth/accesstoken:
+    post:
+      description: This is a simplified version of oAuth in that it only supports
+        accesstokens and does not require a client_id. See the endpoint '/api/v1/oauth/token'
+        for the more advanced oAuth endpoint. Once a user has been authorized, the
+        client app will call this service to receive the access token. The access
+        token will be used to grant permissions to data stores. An access token expires
+        every hour. After that, request a new access token.
+      operationId: AccessToken
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessTokenRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+          description: 200 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 400 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 500 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      summary: Request a temporary oAuth access code.
+      tags:
+      - Api
+      x-codegen-request-body-name: AccessTokenRequest
+  /oauth/authorize:
+    post:
+      description: Sign into the SensorPush API via redirect to SensorPush logon.
+        Then signin using email/password, or an api id. This service will return an
+        oAuth authorization code that can be exchanged for an oAuth access token using
+        the accesstoken service.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizeRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizeResponse'
+          description: 200 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 400 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+        "403":
+          content: {}
+          description: invalid user
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 500 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      summary: Sign in and request an authorization code
+      tags:
+      - Api
+      x-codegen-request-body-name: AuthorizeRequest
+  /oauth/token:
+    post:
+      description: 'This is a more advanced endpoint that implements the oAuth 2.0
+        specification. Supports grant_types: password, refresh_token, and access_token.
+        If grant_type is null an access_token will be returned. (see <a href="https://oauth.net/2/grant-types/">oAuth
+        Grant Types</a>). A client_id is required for this endpoint. Contact support@sensorpush.com
+        to register your application and recieve a client_id.'
+      operationId: Token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+          description: 200 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 400 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 500 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      summary: oAuth 2.0 for authorization, access, and refresh tokens
+      tags:
+      - Api
+      x-codegen-request-body-name: TokenRequest
+  /reports/download:
+    post:
+      description: This service will download bulk generated reports.
+      operationId: Download
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportsRequest'
+        required: true
+      responses:
+        "200":
+          content: {}
+          description: 200 response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 400 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 500 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      security:
+      - oauth: []
+      summary: Download bulk reports.
+      tags:
+      - Api
+      x-codegen-request-body-name: ReportsRequest
+  /reports/list:
+    post:
+      description: This service will list all bulk generated reports available to
+        download.
+      operationId: List
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportsRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+          description: 200 response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 400 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 500 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      security:
+      - oauth: []
+      summary: Lists reports available for download.
+      tags:
+      - Api
+      x-codegen-request-body-name: ReportsRequest
+  /samples:
+    post:
+      description: This service is used to query for samples persisted by the sensors.
+        The service will return all samples after the given parameter {startTime}.
+        Queries that produce greater than ~5MB of data will be truncated. If results
+        return truncated, consider using the sensors parameter list. This will allow
+        you to retrieve more data per sensor. For example, a query that does not provide
+        a sensor list, will attempt to return equal amounts of data for all sensors
+        (i.e. ~5MB divided by N sensors). However, if one sensor is specified, than
+        all ~5MB will be filled for that one sensor (i.e. ~5MB divided by 1). Another
+        option is to paginate through results by time, using {startTime} as the last
+        date in your previous page of results.
+      operationId: Samples
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SamplesRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Samples'
+          description: 200 response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 400 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: 500 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      security:
+      - oauth: []
+      summary: Queries for sensor samples.
+      tags:
+      - Api
+      x-codegen-request-body-name: SamplesRequest
+components:
+  schemas:
+    AccessTokenRequest:
+      description: Request object for an oAuth accesstoken code.
+      example:
+        authorization: authorization
+      properties:
+        authorization:
+          description: Authorization code recieved from the oauth/authorize service.
+          type: string
+      type: object
+    AccessTokenResponse:
+      description: Response object for an oAuth authorization code.
+      example:
+        accesstoken: accesstoken
+      properties:
+        accesstoken:
+          description: 'JWT oAuth accesstoken. Pass this code to the data services
+            via the http header ''Authorization''. Example ''Authorization'' : ''Bearer
+            <access token>'''
+          type: string
+      type: object
+    AuthorizeRequest:
+      description: Request object for an oAuth authorization code.
+      example:
+        password: password
+        email: email
+      properties:
+        email:
+          description: Email associated with a valid account.
+          type: string
+        password:
+          description: Password associated with the email.
+          type: string
+      type: object
+    AuthorizeResponse:
+      description: Response object for an oAuth authorization code.
+      example:
+        authorization: authorization
+      properties:
+        authorization:
+          description: JWT oAuth authorization code. Pass this code to the oauth/accesscode
+            service to request an access token. The [jwt](https://jwt.io/) website
+            has a useful jwt viewer.
+          type: string
+      type: object
+    Error:
+      properties:
+        message:
+          type: string
+      title: Error Schema
+      type: object
+    Gateway:
+      properties:
+        last_alert:
+          description: Date last alert was sent
+          format: date-time
+          type: string
+        last_seen:
+          description: Date the gateway was last seen
+          format: date-time
+          type: string
+        message:
+          description: Detailed message associated with the gateway status.
+          type: string
+        name:
+          description: Name associated with a gateway
+          type: string
+        paired:
+          description: Gateway is paired with a bluetooth device
+          type: string
+        samples:
+          additionalProperties:
+            $ref: '#/components/schemas/Sample'
+          description: Samples associated with SensorPush gateway
+          type: object
+        version:
+          description: Version of Sensorpush software
+          type: string
+      type: object
+    Gateways:
+      additionalProperties:
+        $ref: '#/components/schemas/Gateway'
+      description: Map of registered SensorPush gateways
+      type: object
+    GatewaysRequest:
+      description: Request object for gateways.
+      example:
+        format: format
+      properties:
+        format:
+          description: Returns the results as the specified format (csv|json). Defaults
+            to json
+          type: string
+      type: object
+    ListResponse:
+      example:
+        files:
+        - size: size
+          name: name
+          last_modified: 2000-01-23T04:56:07.000+00:00
+        - size: size
+          name: name
+          last_modified: 2000-01-23T04:56:07.000+00:00
+      properties:
+        files:
+          items:
+            $ref: '#/components/schemas/ReportListing'
+          type: array
+      type: object
+    ReportListing:
+      example:
+        size: size
+        name: name
+        last_modified: 2000-01-23T04:56:07.000+00:00
+      properties:
+        last_modified:
+          description: Date file was last modified
+          format: date-time
+          type: string
+        name:
+          description: Name of the file
+          type: string
+        size:
+          description: File size
+          type: string
+      type: object
+    ReportsRequest:
+      description: Request object for reports.
+      example:
+        path: path
+      properties:
+        path:
+          description: The directory path to perform this operation.
+          type: string
+      type: object
+    Sample:
+      example:
+        temperature: 1.4658129805029452
+        humidity: 6.027456183070403
+        observed: 2000-01-23T04:56:07.000+00:00
+      properties:
+        humidity:
+          type: number
+        observed:
+          description: Date time when sample was observed.
+          format: date-time
+          type: string
+        temperature:
+          type: number
+      type: object
+    Samples:
+      description: Map of registered SensorPush sensors
+      example:
+        sensors:
+          key:
+          - temperature: 1.4658129805029452
+            humidity: 6.027456183070403
+            observed: 2000-01-23T04:56:07.000+00:00
+          - temperature: 1.4658129805029452
+            humidity: 6.027456183070403
+            observed: 2000-01-23T04:56:07.000+00:00
+        last_time: 0.8008281904610115
+        truncated: true
+        total_sensors: 5.637376656633329
+        total_samples: 5.962133916683182
+        status: status
+      properties:
+        last_time:
+          description: Timestamp of the last sample returned. Use this as the start_ts
+            to query for the next page of samples.
+          type: number
+        sensors:
+          additionalProperties:
+            items:
+              $ref: '#/components/schemas/Sample'
+            type: array
+          description: Map of sensors and the associated samples.
+          type: object
+        status:
+          description: Message describing state of the api call.
+          type: string
+        total_samples:
+          description: Total number of samples across all sensors
+          type: number
+        total_sensors:
+          description: Total number of sensors returned
+          type: number
+        truncated:
+          description: The query returned too many results, causing the sample list
+            to be truncated. Consider adjusting the limit or startTime parameters.
+          type: boolean
+      type: object
+    SamplesRequest:
+      description: Request object for samples.
+      example:
+        sensors:
+        - sensors
+        - sensors
+        format: format
+        limit: 0
+        active: true
+        startTime: startTime
+        stopTime: stopTime
+        bulk: true
+      properties:
+        active:
+          description: Filters sensors by active = (true|false). Defaults to true
+          type: boolean
+        bulk:
+          description: Queries that return large results are truncated (see comments
+            on Samples endpoint). Set this flag to true for large reports. The report
+            request will be queued and processed within 24 hours. Upon completion,
+            the primary account holder will recieve an email with a link for download.
+          type: boolean
+        format:
+          description: Returns the results as the specified format (csv|json). Defaults
+            to json
+          type: string
+        limit:
+          description: Number of samples to return.
+          type: integer
+        sensors:
+          description: 'Filters samples by sensor id. This will be the same id returned
+            in the sensors api call. The parameter value must be a list of strings.
+            Example: sensors: ["123.56789"].'
+          items:
+            type: string
+          type: array
+        startTime:
+          description: 'Start time to find samples (example: 2019-04-07T00:00:00-0400).
+            Leave blank or zero to get the most recent samples.'
+          type: string
+        stopTime:
+          description: 'Stop time to find samples (example: 2019-04-07T10:30:00-0400).
+            Leave blank or zero to get the most recent samples.'
+          type: string
+      type: object
+    Sensor:
+      properties:
+        active:
+          description: Is the sensor active?
+          type: boolean
+        address:
+          description: MAC address
+          type: string
+        alerts:
+          $ref: '#/components/schemas/Sensor_alerts'
+        battery_voltage:
+          description: Current battery voltage
+          type: number
+        calibration:
+          $ref: '#/components/schemas/Sensor_calibration'
+        deviceId:
+          description: Short device Id
+          type: string
+        id:
+          description: Long device Id
+          type: string
+        name:
+          description: Name of the sensor sensor
+          type: string
+      type: object
+    Sensors:
+      additionalProperties:
+        $ref: '#/components/schemas/Sensor'
+      description: Map of registered SensorPush sensors
+      type: object
+    SensorsRequest:
+      description: Request object for sensors.
+      example:
+        format: format
+        active: true
+      properties:
+        active:
+          description: filters sensors by active = (true|false). Defaults to true
+          type: boolean
+        format:
+          description: Returns the results as the specified format (csv|json). Defaults
+            to json
+          type: string
+      type: object
+    Status:
+      example:
+        stack: stack
+        ms: 0
+        deployed: deployed
+        time: time
+        message: message
+        version: version
+        status: status
+      properties:
+        deployed:
+          description: Date time when this service was last updated.
+          type: string
+        message:
+          description: Greeting message.
+          type: string
+        ms:
+          description: Current date time on the server in milliseconds.
+          type: integer
+        stack:
+          description: Active stack hosting this service.
+          type: string
+        status:
+          description: Current status of the api service.
+          type: string
+        time:
+          description: Current date time on the server.
+          type: string
+        version:
+          description: Version of this service currently deployed
+          type: string
+      required:
+      - message
+      type: object
+    TokenRequest:
+      description: Request object for an oAuth accesstoken code.
+      example:
+        refresh_token: refresh_token
+        password: password
+        code: code
+        grant_type: grant_type
+        client_secret: client_secret
+        redirect_uri: redirect_uri
+        client_id: client_id
+        username: username
+      properties:
+        client_id:
+          description: Client Id assigned to 3rd party applications. Contact support@sensorpush.com
+            to register you app.
+          type: string
+        client_secret:
+          description: Password associated with the client_id
+          type: string
+        code:
+          description: This can be an authorization, access, or refresh token. Depending
+            on which grant_type you are using.
+          type: string
+        grant_type:
+          description: Accepted values are password, refresh_token, and access_token
+          type: string
+        password:
+          description: User's password
+          type: string
+        redirect_uri:
+          description: Redirection url to the 3rd party application once the user
+            has signed into the sensorpush logon. This value should be URL encoded.
+          type: string
+        refresh_token:
+          description: Refresh token used to request new access tokens.
+          type: string
+        username:
+          description: Email of the user to sign in.
+          type: string
+      type: object
+    TokenResponse:
+      description: Response object for an oAuth authorization code.
+      example:
+        access_token: access_token
+        refresh_token: refresh_token
+        token_type: token_type
+        expires_in: 0.8008281904610115
+      properties:
+        access_token:
+          description: 'JWT oAuth access token. Pass this token to the data services
+            via the http header ''Authorization''. Example ''Authorization'' : ''Bearer
+            <access token>'''
+          type: string
+        expires_in:
+          description: TTL of the token in seconds
+          type: number
+        refresh_token:
+          description: JWT oAuth refresh token. Pass this token to the token service
+            to retrieve a new access token.
+          type: string
+        token_type:
+          description: Type of token returned
+          type: string
+      type: object
+    Sensor_alerts_humidity:
+      description: alert settings for humidity
+      properties:
+        enabled:
+          description: Is enabled?
+          type: boolean
+        max:
+          description: Max threshold for alert
+          type: number
+        min:
+          description: Min threshold for alert
+          type: number
+    Sensor_alerts_temperature:
+      description: alert settings for temperature
+      properties:
+        enabled:
+          description: Is enabled?
+          type: boolean
+        max:
+          description: Max threshold for alert
+          type: number
+        min:
+          description: Min threshold for alert
+          type: number
+    Sensor_alerts:
+      description: Alert settings
+      properties:
+        humidity:
+          $ref: '#/components/schemas/Sensor_alerts_humidity'
+        temperature:
+          $ref: '#/components/schemas/Sensor_alerts_temperature'
+    Sensor_calibration:
+      description: Calibration settings
+      properties:
+        humidity:
+          description: Humidity calibration
+          type: number
+        temperature:
+          description: Temperature calibration
+          type: number
+  securitySchemes:
+    oauth:
+      description: This header value grants temporary access to data resources. Use
+        the accesstoken value returned by the accesstoken service.
+      in: header
+      name: Authorization
+      type: apiKey
