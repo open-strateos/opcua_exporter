@@ -9,10 +9,13 @@
  */
 
 package sensorpush
+
+import "time"
+
 // Samples Map of registered SensorPush sensors
 type Samples struct {
 	// Timestamp of the last sample returned. Use this as the start_ts to query for the next page of samples.
-	LastTime float32 `json:"last_time,omitempty"`
+	LastTime time.Time `json:"last_time,omitempty"`
 	// Map of sensors and the associated samples.
 	Sensors map[string][]Sample `json:"sensors,omitempty"`
 	// Message describing state of the api call.
