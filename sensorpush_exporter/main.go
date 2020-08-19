@@ -17,10 +17,11 @@ import (
 var port = flag.Int("port", 9687, "Port to publish metrics on.")
 var pollingInterval = flag.Int("interval", 60, "Polling interval, in seconds.")
 
-var usernameEnvVar = "SENSORPUSH_USERNAME"
-var passwordEnvVar = "SENSORPUSH_PASSWORD"
+const usernameEnvVar = "SENSORPUSH_USERNAME"
+const passwordEnvVar = "SENSORPUSH_PASSWORD"
+const promSubsystemName = "sensorpush_exporter" // For labelling prometheus metrics
 
-var sensorNameMap SensorNameMap
+var sensorNameMap map[string]string // maps sensor IDs to display names
 
 func main() {
 	flag.Parse()
@@ -40,26 +41,36 @@ func main() {
 		log.Fatal("Error authenticating with Sensorpush: ", err)
 	}
 
-	sensorNameMap = *getSensorNameMap(authCtx, client)
-	getSamples(authCtx, client, sensorNameMap)
+	sensorNameMap = getSensorNameMap(authCtx, client)
 
 	initMetrics(ctx)
-	go pollForSamples(authCtx, client)
+	go serveMetrics()
 
-	http.Handle("/metrics", promhttp.Handler())
-	var listenOn = fmt.Sprintf(":%d", *port)
-	log.Printf("Serving metrics on %s", listenOn)
-	log.Fatal(http.ListenAndServe(listenOn, nil))
+	for {
+		err := pollForSamples(authCtx, client)
+		if err != nil {
+			log.Print("Error getting samples: ", err)
+		}
+
+		log.Println("Refreshing auth token...")
+		authCtx, err = getAuthContext(ctx, client, username, password)
+		reauthCounter.Inc()
+		if err != nil {
+			log.Fatal("Error authenticating with Sensorpush: ", err)
+		}
+	}
+
 }
 
 var startTime = time.Now()
 var uptimeGauge prometheus.Gauge
 var temperatureGaugeVec *prometheus.GaugeVec
 var humidityGaugeVec *prometheus.GaugeVec
+var reauthCounter prometheus.Counter
 
 func initMetrics(ctx context.Context) {
 	uptimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Subsystem: "sensorpush_exporter",
+		Subsystem: promSubsystemName,
 		Name:      "uptime_seconds",
 		Help:      "Time in seconds since the OPCUA exporter started",
 	})
@@ -67,16 +78,23 @@ func initMetrics(ctx context.Context) {
 	prometheus.MustRegister(uptimeGauge)
 	go watchUptime(ctx)
 
+	reauthCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Subsystem: "sensorpush_exporter",
+		Name:      "reauth_count",
+		Help:      "Number of times the exporter has refreshed its Sensorpush auth token.",
+	})
+	prometheus.MustRegister(reauthCounter)
+
 	labelNames := []string{"device_name"}
 	temperatureGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Subsystem: "sensorpush_exporter",
+		Subsystem: promSubsystemName,
 		Name:      "temperature_celsius",
 		Help:      "Temperature at the sensor",
 	}, labelNames)
 	prometheus.MustRegister(temperatureGaugeVec)
 
 	humidityGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Subsystem: "sensorpush_exporter",
+		Subsystem: promSubsystemName,
 		Name:      "relative_humidity",
 		Help:      "Relative humidity at the sensor.",
 	}, labelNames)
@@ -88,6 +106,13 @@ func watchUptime(ctx context.Context) {
 		uptimeGauge.Set(time.Now().Sub(startTime).Seconds())
 		time.Sleep(time.Second)
 	}
+}
+
+func serveMetrics() {
+	http.Handle("/metrics", promhttp.Handler())
+	var listenOn = fmt.Sprintf(":%d", *port)
+	log.Printf("Serving metrics on %s", listenOn)
+	log.Fatal(http.ListenAndServe(listenOn, nil))
 }
 
 func getClient() *sensorpush.APIClient {
@@ -117,43 +142,44 @@ func getAuthContext(ctx context.Context, client *sensorpush.APIClient, username 
 	return authCtx, nil
 }
 
-type SensorNameMap map[string]string
-
-func getSensorNameMap(authCtx context.Context, client *sensorpush.APIClient) *SensorNameMap {
+func getSensorNameMap(authCtx context.Context, client *sensorpush.APIClient) map[string]string {
 	sensors, _, err := client.ApiApi.Sensors(authCtx, sensorpush.SensorsRequest{})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	nameMap := make(SensorNameMap)
+	nameMap := make(map[string]string)
 	for _, v := range sensors {
 		nameMap[v.Id] = v.Name
 	}
-	return &nameMap
+	return nameMap
 }
 
-func getSamples(authCtx context.Context, client *sensorpush.APIClient, sensorNameMap SensorNameMap) map[string]sensorpush.Sample {
+func getSamples(authCtx context.Context, client *sensorpush.APIClient, sensorNameMap map[string]string) (map[string]sensorpush.Sample, error) {
 
 	samples, resp, err := client.ApiApi.Samples(authCtx, sensorpush.SamplesRequest{
 		Limit: 1,
 	})
 	if err != nil {
-		log.Print("CODE: ", resp.StatusCode)
-		log.Fatal(err)
+		log.Printf("Error from sensorpush, response code %d", resp.StatusCode)
+		return nil, err
 	}
 
 	result := make(map[string]sensorpush.Sample)
-	for sensorId, samples := range samples.Sensors {
-		sensorName := sensorNameMap[sensorId]
+	for sensorID, samples := range samples.Sensors {
+		sensorName := sensorNameMap[sensorID]
 		result[sensorName] = samples[0]
 	}
-	return result
+	return result, nil
 
 }
 
-func pollForSamples(authCtx context.Context, client *sensorpush.APIClient) {
+func pollForSamples(authCtx context.Context, client *sensorpush.APIClient) error {
 	for {
-		samples := getSamples(authCtx, client, sensorNameMap)
+		samples, err := getSamples(authCtx, client, sensorNameMap)
+		if err != nil {
+			return err
+		}
 
 		for sensorName, sample := range samples {
 			labels := prometheus.Labels{
@@ -162,9 +188,9 @@ func pollForSamples(authCtx context.Context, client *sensorpush.APIClient) {
 			temperatureGaugeVec.With(labels).Set(float64(sample.Temperature))
 
 			humidityGaugeVec.With(labels).Set(float64(sample.Humidity))
-			log.Printf("device_name: %s  temp: %fC  humidity: %f%%", sensorName, sample.Temperature, sample.Humidity)
+			log.Printf("device_name: %s\ttemp: %fC\thumidity: %f%%", sensorName, sample.Temperature, sample.Humidity)
 		}
-		
-		time.Sleep(time.Duration(*pollingInterval) * time.Second))
+
+		time.Sleep(time.Duration(*pollingInterval) * time.Second)
 	}
 }
