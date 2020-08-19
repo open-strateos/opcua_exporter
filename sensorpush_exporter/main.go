@@ -27,7 +27,7 @@ func main() {
 
 	username, usernameSet := os.LookupEnv(usernameEnvVar)
 	password, passwordSet := os.LookupEnv(passwordEnvVar)
-	if !usernameSet && !passwordSet {
+	if !usernameSet || !passwordSet {
 		log.Fatalf("You must set %s and %s", usernameEnvVar, passwordEnvVar)
 	}
 
@@ -35,7 +35,10 @@ func main() {
 	defer cancel()
 
 	client := getClient()
-	authCtx := getAuthContext(ctx, client, username, password)
+	authCtx, err := getAuthContext(ctx, client, username, password)
+	if err != nil {
+		log.Fatal("Error authenticating with Sensorpush: ", err)
+	}
 
 	sensorNameMap = *getSensorNameMap(authCtx, client)
 	getSamples(authCtx, client, sensorNameMap)
@@ -90,25 +93,28 @@ func watchUptime(ctx context.Context) {
 func getClient() *sensorpush.APIClient {
 	config := sensorpush.NewConfiguration()
 	client := sensorpush.NewAPIClient(config)
-
 	return client
 }
 
-func getAuthContext(ctx context.Context, client *sensorpush.APIClient, username string, password string) context.Context {
+func getAuthContext(ctx context.Context, client *sensorpush.APIClient, username string, password string) (context.Context, error) {
 	authResp, _, err := client.ApiApi.OauthAuthorizePost(ctx, sensorpush.AuthorizeRequest{
 		Email:    username,
 		Password: password,
 	})
+	if err != nil {
+		return nil, err
+	}
+
 	token, _, err := client.ApiApi.AccessToken(ctx, sensorpush.AccessTokenRequest{
 		Authorization: authResp.Authorization,
 	})
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	authCtx := context.WithValue(ctx, sensorpush.ContextAccessToken, token.Accesstoken)
 
-	return authCtx
+	return authCtx, nil
 }
 
 type SensorNameMap map[string]string
@@ -158,7 +164,7 @@ func pollForSamples(authCtx context.Context, client *sensorpush.APIClient) {
 			humidityGaugeVec.With(labels).Set(float64(sample.Humidity))
 			log.Printf("device_name: %s  temp: %fC  humidity: %f%%", sensorName, sample.Temperature, sample.Humidity)
 		}
-
-		time.Sleep(time.Duration(*pollingInterval) * time.Second)
+		
+		time.Sleep(time.Duration(*pollingInterval) * time.Second))
 	}
 }
