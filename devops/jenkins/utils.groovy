@@ -17,7 +17,7 @@ def test_opcua(image, tag, directory) {
   }
 }
 
-def build_opcua(image, tag, directory) {
+def build_docker(image, tag, directory) {
 
   dir(directory) {
     dockerBuild(
@@ -25,7 +25,7 @@ def build_opcua(image, tag, directory) {
         tag: tag,
         dockerfile: "Dockerfile",
         use_cache: true,
-        push: true,
+        push: false,
         push_wait: true
     )
   }
@@ -36,7 +36,7 @@ def build_opcua(image, tag, directory) {
 // System helpers
 
 def setup_worker() {
-  checkout scm
+  checkoutWithChangeSet()
   sh "aws ecr get-login --no-include-email | sh"
 }
 
