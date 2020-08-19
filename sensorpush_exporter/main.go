@@ -14,55 +14,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+//Command-line Flags
 var port = flag.Int("port", 9687, "Port to publish metrics on.")
 var pollingInterval = flag.Int("interval", 60, "Polling interval, in seconds.")
 
+// Constants
 const usernameEnvVar = "SENSORPUSH_USERNAME"
 const passwordEnvVar = "SENSORPUSH_PASSWORD"
 const promSubsystemName = "sensorpush_exporter" // For labelling prometheus metrics
 
 var sensorNameMap map[string]string // maps sensor IDs to display names
 
-func main() {
-	flag.Parse()
-
-	username, usernameSet := os.LookupEnv(usernameEnvVar)
-	password, passwordSet := os.LookupEnv(passwordEnvVar)
-	if !usernameSet || !passwordSet {
-		log.Fatalf("You must set %s and %s", usernameEnvVar, passwordEnvVar)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	client := getClient()
-	authCtx, err := getAuthContext(ctx, client, username, password)
-	if err != nil {
-		log.Fatal("Error authenticating with Sensorpush: ", err)
-	}
-
-	sensorNameMap = getSensorNameMap(authCtx, client)
-
-	initMetrics(ctx)
-	go serveMetrics()
-
-	for {
-		err := pollForSamples(authCtx, client)
-		if err != nil {
-			log.Print("Error getting samples: ", err)
-		}
-
-		log.Println("Refreshing auth token...")
-		authCtx, err = getAuthContext(ctx, client, username, password)
-		reauthCounter.Inc()
-		if err != nil {
-			log.Fatal("Error authenticating with Sensorpush: ", err)
-		}
-	}
-
-}
-
-var startTime = time.Now()
+// Proimetheus Metrics
 var uptimeGauge prometheus.Gauge
 var temperatureGaugeVec *prometheus.GaugeVec
 var humidityGaugeVec *prometheus.GaugeVec
@@ -100,6 +63,8 @@ func initMetrics(ctx context.Context) {
 	}, labelNames)
 	prometheus.MustRegister(humidityGaugeVec)
 }
+
+var startTime = time.Now()
 
 func watchUptime(ctx context.Context) {
 	for {
@@ -193,4 +158,43 @@ func pollForSamples(authCtx context.Context, client *sensorpush.APIClient) error
 
 		time.Sleep(time.Duration(*pollingInterval) * time.Second)
 	}
+}
+
+func main() {
+	flag.Parse()
+
+	username, usernameSet := os.LookupEnv(usernameEnvVar)
+	password, passwordSet := os.LookupEnv(passwordEnvVar)
+	if !usernameSet || !passwordSet {
+		log.Fatalf("You must set %s and %s", usernameEnvVar, passwordEnvVar)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	client := getClient()
+	authCtx, err := getAuthContext(ctx, client, username, password)
+	if err != nil {
+		log.Fatal("Error authenticating with Sensorpush: ", err)
+	}
+
+	sensorNameMap = getSensorNameMap(authCtx, client)
+
+	initMetrics(ctx)
+	go serveMetrics()
+
+	for {
+		err := pollForSamples(authCtx, client)
+		if err != nil {
+			log.Print("Error getting samples: ", err)
+		}
+
+		log.Println("Refreshing auth token...")
+		authCtx, err = getAuthContext(ctx, client, username, password)
+		reauthCounter.Inc()
+		if err != nil {
+			log.Fatal("Error authenticating with Sensorpush: ", err)
+		}
+	}
+
 }
