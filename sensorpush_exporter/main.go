@@ -93,7 +93,9 @@ func getClient() *sensorpush.APIClient {
 	return client
 }
 
-func getAuthContext(ctx context.Context, client *sensorpush.APIClient, username string, password string) (context.Context, error) {
+var authCtx context.Context
+
+func getAuthContext(ctx context.Context, client *sensorpush.APIClient, username string, password string) (*context.Context, error) {
 	authResp, _, err := client.ApiApi.OauthAuthorizePost(ctx, sensorpush.AuthorizeRequest{
 		Email:    username,
 		Password: password,
@@ -111,7 +113,7 @@ func getAuthContext(ctx context.Context, client *sensorpush.APIClient, username 
 
 	authCtx := context.WithValue(ctx, sensorpush.ContextAccessToken, token.Accesstoken)
 
-	return authCtx, nil
+	return &authCtx, nil
 }
 
 var sensorNameMap map[string]string      // maps sensor IDs to display names
@@ -121,39 +123,53 @@ var sensorNamesReady = make(chan bool)   // signal that sensor names are ready a
 // Refresh the sensor name map periodically,
 // or when a signal is received on the sensorNamesRefresh channel.
 // A triggered refresh will reset the timer.
-func sensorNameRefreshLoop(authCtx context.Context, client *sensorpush.APIClient, interval time.Duration) {
+func sensorNameRefreshLoop(authCtx *context.Context, client *sensorpush.APIClient, interval time.Duration) {
+	var tmpSensorNameMap map[string]string
+	var err error
+	var triggered = false
 	for {
+
+		// Block waiting for a trigger or timer
 		select {
 		case <-sensorNamesRefresh:
+			triggered = true
 			log.Println("Refreshing the sensor name map (triggered)")
-			sensorNameMap = getSensorNameMap(authCtx, client)
-			sensorNamesReady <- true
 		case <-time.After(interval):
+			triggered = false
 			log.Printf("Refreshing the sensor name map (scheduled)")
-			sensorNameMap = getSensorNameMap(authCtx, client)
-		case <-authCtx.Done():
+		case <-(*authCtx).Done():
 			break // exit the outer for loop if the context is cancelled
+		}
+
+		tmpSensorNameMap, err = getSensorNameMap(*authCtx, client)
+		if err == nil {
+			sensorNameMap = tmpSensorNameMap
+		} else {
+			log.Printf("Unable to refresh sensor names. Main loop should reauth before the next attempt.")
+		}
+		if triggered {
+			sensorNamesReady <- true
 		}
 		numberOfSensors.Set(float64(len(sensorNameMap)))
 	}
 }
 
-func getSensorNameMap(authCtx context.Context, client *sensorpush.APIClient) map[string]string {
+func getSensorNameMap(authCtx context.Context, client *sensorpush.APIClient) (map[string]string, error) {
 	sensors, _, err := client.ApiApi.Sensors(authCtx, sensorpush.SensorsRequest{})
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	nameMap := make(map[string]string)
 	for _, v := range sensors {
 		nameMap[v.Id] = v.Name
 	}
-	return nameMap
+	return nameMap, nil
 }
 
-func getSamples(authCtx context.Context, client *sensorpush.APIClient, sensorNameMap map[string]string) (map[string]sensorpush.Sample, error) {
+func getSamples(authCtx *context.Context, client *sensorpush.APIClient, sensorNameMap map[string]string) (map[string]sensorpush.Sample, error) {
 
-	samples, resp, err := client.ApiApi.Samples(authCtx, sensorpush.SamplesRequest{
+	samples, resp, err := client.ApiApi.Samples(*authCtx, sensorpush.SamplesRequest{
 		Limit: 1,
 	})
 	if err != nil {
@@ -177,7 +193,7 @@ func getSamples(authCtx context.Context, client *sensorpush.APIClient, sensorNam
 
 }
 
-func pollForSamples(authCtx context.Context, client *sensorpush.APIClient) error {
+func pollForSamples(authCtx *context.Context, client *sensorpush.APIClient) error {
 	for {
 		samples, err := getSamples(authCtx, client, sensorNameMap)
 		if err != nil {
@@ -215,8 +231,10 @@ func main() {
 	go serveMetrics()
 
 	log.Println("Authenticating.")
+	var authCtx *context.Context
 	client := getClient()
 	authCtx, err := getAuthContext(ctx, client, username, password)
+
 	if err != nil {
 		log.Fatal("Error authenticating with Sensorpush: ", err)
 	}
