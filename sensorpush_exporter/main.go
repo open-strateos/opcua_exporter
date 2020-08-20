@@ -17,19 +17,19 @@ import (
 //Command-line Flags
 var port = flag.Int("port", 9687, "Port to publish metrics on.")
 var pollingInterval = flag.Int("interval", 60, "Polling interval, in seconds.")
+var sensorNameRefreshInterval = flag.Int("name-refresh-interval", 5*60, "How frequently to automatically refresh the sensor names table, in seconds")
 
 // Constants
 const usernameEnvVar = "SENSORPUSH_USERNAME"
 const passwordEnvVar = "SENSORPUSH_PASSWORD"
 const promSubsystemName = "sensorpush_exporter" // For labelling prometheus metrics
 
-var sensorNameMap map[string]string // maps sensor IDs to display names
-
 // Proimetheus Metrics
 var uptimeGauge prometheus.Gauge
 var temperatureGaugeVec *prometheus.GaugeVec
 var humidityGaugeVec *prometheus.GaugeVec
 var reauthCounter prometheus.Counter
+var numberOfSensors prometheus.Gauge
 
 func initMetrics(ctx context.Context) {
 	uptimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -42,11 +42,18 @@ func initMetrics(ctx context.Context) {
 	go watchUptime(ctx)
 
 	reauthCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Subsystem: "sensorpush_exporter",
+		Subsystem: promSubsystemName,
 		Name:      "reauth_count",
 		Help:      "Number of times the exporter has refreshed its Sensorpush auth token.",
 	})
 	prometheus.MustRegister(reauthCounter)
+
+	numberOfSensors = prometheus.NewGauge(prometheus.GaugeOpts{
+		Subsystem: promSubsystemName,
+		Name:      "number_of_sensors",
+		Help:      "Number of sensors being monitored",
+	})
+	prometheus.MustRegister(numberOfSensors)
 
 	labelNames := []string{"device_name"}
 	temperatureGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -107,6 +114,30 @@ func getAuthContext(ctx context.Context, client *sensorpush.APIClient, username 
 	return authCtx, nil
 }
 
+var sensorNameMap map[string]string      // maps sensor IDs to display names
+var sensorNamesRefresh = make(chan bool) // send to this channel to force-refresh the sensor names
+var sensorNamesReady = make(chan bool)   // signal that sensor names are ready after a forced refresh
+
+// Refresh the sensor name map periodically,
+// or when a signal is received on the sensorNamesRefresh channel.
+// A triggered refresh will reset the timer.
+func sensorNameRefreshLoop(authCtx context.Context, client *sensorpush.APIClient, interval time.Duration) {
+	for {
+		select {
+		case <-sensorNamesRefresh:
+			log.Println("Refreshing the sensor name map (triggered)")
+			sensorNameMap = getSensorNameMap(authCtx, client)
+			sensorNamesReady <- true
+		case <-time.After(interval):
+			log.Printf("Refreshing the sensor name map (scheduled)")
+			sensorNameMap = getSensorNameMap(authCtx, client)
+		case <-authCtx.Done():
+			break // exit the outer for loop if the context is cancelled
+		}
+		numberOfSensors.Set(float64(len(sensorNameMap)))
+	}
+}
+
 func getSensorNameMap(authCtx context.Context, client *sensorpush.APIClient) map[string]string {
 	sensors, _, err := client.ApiApi.Sensors(authCtx, sensorpush.SensorsRequest{})
 	if err != nil {
@@ -132,6 +163,13 @@ func getSamples(authCtx context.Context, client *sensorpush.APIClient, sensorNam
 
 	result := make(map[string]sensorpush.Sample)
 	for sensorID, samples := range samples.Sensors {
+
+		// If an unknown sensor ID is encountered, force-refresh the name map
+		if _, known := sensorNameMap[sensorID]; !known {
+			sensorNamesRefresh <- true
+			<-sensorNamesReady
+		}
+
 		sensorName := sensorNameMap[sensorID]
 		result[sensorName] = samples[0]
 	}
@@ -172,16 +210,22 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	log.Println("Initializing metrics")
+	initMetrics(ctx)
+	go serveMetrics()
+
+	log.Println("Authenticating.")
 	client := getClient()
 	authCtx, err := getAuthContext(ctx, client, username, password)
 	if err != nil {
 		log.Fatal("Error authenticating with Sensorpush: ", err)
 	}
+	log.Println("Authentication succeeded")
 
-	sensorNameMap = getSensorNameMap(authCtx, client)
-
-	initMetrics(ctx)
-	go serveMetrics()
+	go sensorNameRefreshLoop(authCtx, client, time.Duration(*sensorNameRefreshInterval)*time.Second)
+	// Trigger and wait for an initial fetch
+	sensorNamesRefresh <- true
+	<-sensorNamesReady
 
 	for {
 		err := pollForSamples(authCtx, client)
