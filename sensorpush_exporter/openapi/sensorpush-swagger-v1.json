@@ -169,7 +169,8 @@
       "properties": {
         "last_time": {
           "description": "Timestamp of the last sample returned. Use this as the start_ts to query for the next page of samples.",
-          "type": "number"
+          "format": "date-time",
+          "type": "string"
         },
         "sensors": {
           "additionalProperties": {
