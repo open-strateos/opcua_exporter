@@ -24,7 +24,19 @@ const usernameEnvVar = "SENSORPUSH_USERNAME"
 const passwordEnvVar = "SENSORPUSH_PASSWORD"
 const promSubsystemName = "sensorpush_exporter" // For labelling prometheus metrics
 
-// Proimetheus Metrics
+// Global vars
+var startTime = time.Now()
+var globalAuthCtx *context.Context // holds auth token for sensorpush
+var sensorPushCredentials struct {
+	username string
+	password string
+}
+
+var sensorNameMap map[string]string      // maps sensor IDs to display names
+var sensorNamesRefresh = make(chan bool) // send to this channel to force-refresh the sensor names
+var sensorNamesReady = make(chan bool)   // signal that sensor names are ready after a forced refresh
+
+// Prometheus Metrics
 var uptimeGauge prometheus.Gauge
 var temperatureGaugeVec *prometheus.GaugeVec
 var humidityGaugeVec *prometheus.GaugeVec
@@ -71,8 +83,6 @@ func initMetrics(ctx context.Context) {
 	prometheus.MustRegister(humidityGaugeVec)
 }
 
-var startTime = time.Now()
-
 func watchUptime(ctx context.Context) {
 	for {
 		uptimeGauge.Set(time.Now().Sub(startTime).Seconds())
@@ -93,7 +103,19 @@ func getClient() *sensorpush.APIClient {
 	return client
 }
 
-var authCtx context.Context
+// User globally stored credentials to update the global auth context
+// This allows us to share an auth context between pollforSamples() and sensorNameRefreshLoop(),
+// at the cost of having some global state. I'm not sure this is ideal.
+func authenticateGlobal(client *sensorpush.APIClient) {
+	username := sensorPushCredentials.username
+	password := sensorPushCredentials.password
+	authCtx, err := getAuthContext(context.Background(), client, username, password)
+	if err != nil {
+		log.Fatal("Unable to authenticate: ", err)
+	}
+	globalAuthCtx = authCtx
+	reauthCounter.Inc()
+}
 
 func getAuthContext(ctx context.Context, client *sensorpush.APIClient, username string, password string) (*context.Context, error) {
 	authResp, _, err := client.ApiApi.OauthAuthorizePost(ctx, sensorpush.AuthorizeRequest{
@@ -116,14 +138,10 @@ func getAuthContext(ctx context.Context, client *sensorpush.APIClient, username 
 	return &authCtx, nil
 }
 
-var sensorNameMap map[string]string      // maps sensor IDs to display names
-var sensorNamesRefresh = make(chan bool) // send to this channel to force-refresh the sensor names
-var sensorNamesReady = make(chan bool)   // signal that sensor names are ready after a forced refresh
-
 // Refresh the sensor name map periodically,
 // or when a signal is received on the sensorNamesRefresh channel.
 // A triggered refresh will reset the timer.
-func sensorNameRefreshLoop(authCtx *context.Context, client *sensorpush.APIClient, interval time.Duration) {
+func sensorNameRefreshLoop(client *sensorpush.APIClient, interval time.Duration) {
 	var tmpSensorNameMap map[string]string
 	var err error
 	var triggered = false
@@ -137,11 +155,9 @@ func sensorNameRefreshLoop(authCtx *context.Context, client *sensorpush.APIClien
 		case <-time.After(interval):
 			triggered = false
 			log.Printf("Refreshing the sensor name map (scheduled)")
-		case <-(*authCtx).Done():
-			break // exit the outer for loop if the context is cancelled
 		}
 
-		tmpSensorNameMap, err = getSensorNameMap(*authCtx, client)
+		tmpSensorNameMap, err = getSensorNameMap(*globalAuthCtx, client)
 		if err == nil {
 			sensorNameMap = tmpSensorNameMap
 		} else {
@@ -193,24 +209,16 @@ func getSamples(authCtx *context.Context, client *sensorpush.APIClient, sensorNa
 
 }
 
-func pollForSamples(authCtx *context.Context, client *sensorpush.APIClient) error {
-	for {
-		samples, err := getSamples(authCtx, client, sensorNameMap)
-		if err != nil {
-			return err
+// Update prometheus metrics
+func updateMetrics(samples map[string]sensorpush.Sample) {
+	for sensorName, sample := range samples {
+		labels := prometheus.Labels{
+			"device_name": sensorName,
 		}
+		temperatureGaugeVec.With(labels).Set(float64(sample.Temperature))
 
-		for sensorName, sample := range samples {
-			labels := prometheus.Labels{
-				"device_name": sensorName,
-			}
-			temperatureGaugeVec.With(labels).Set(float64(sample.Temperature))
-
-			humidityGaugeVec.With(labels).Set(float64(sample.Humidity))
-			log.Printf("device_name: %s\ttemp: %fC\thumidity: %f%%", sensorName, sample.Temperature, sample.Humidity)
-		}
-
-		time.Sleep(time.Duration(*pollingInterval) * time.Second)
+		humidityGaugeVec.With(labels).Set(float64(sample.Humidity))
+		log.Printf("device_name: %s\ttemp: %fC\thumidity: %f%%", sensorName, sample.Temperature, sample.Humidity)
 	}
 }
 
@@ -222,6 +230,8 @@ func main() {
 	if !usernameSet || !passwordSet {
 		log.Fatalf("You must set %s and %s", usernameEnvVar, passwordEnvVar)
 	}
+	sensorPushCredentials.username = username
+	sensorPushCredentials.password = password
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -231,32 +241,24 @@ func main() {
 	go serveMetrics()
 
 	log.Println("Authenticating.")
-	var authCtx *context.Context
 	client := getClient()
-	authCtx, err := getAuthContext(ctx, client, username, password)
-
-	if err != nil {
-		log.Fatal("Error authenticating with Sensorpush: ", err)
-	}
+	authenticateGlobal(client)
 	log.Println("Authentication succeeded")
 
-	go sensorNameRefreshLoop(authCtx, client, time.Duration(*sensorNameRefreshInterval)*time.Second)
+	go sensorNameRefreshLoop(client, time.Duration(*sensorNameRefreshInterval)*time.Second)
 	// Trigger and wait for an initial fetch
 	sensorNamesRefresh <- true
 	<-sensorNamesReady
 
+	// Sample polling loop
 	for {
-		err := pollForSamples(authCtx, client)
+		samples, err := getSamples(globalAuthCtx, client, sensorNameMap)
 		if err != nil {
-			log.Print("Error getting samples: ", err)
+			authenticateGlobal(client)
+			continue
 		}
+		updateMetrics(samples)
 
-		log.Println("Refreshing auth token...")
-		authCtx, err = getAuthContext(ctx, client, username, password)
-		reauthCounter.Inc()
-		if err != nil {
-			log.Fatal("Error authenticating with Sensorpush: ", err)
-		}
+		time.Sleep(time.Duration(*pollingInterval) * time.Second)
 	}
-
 }
