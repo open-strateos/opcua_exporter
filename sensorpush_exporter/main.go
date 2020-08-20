@@ -27,10 +27,6 @@ const promSubsystemName = "sensorpush_exporter" // For labelling prometheus metr
 // Global vars
 var startTime = time.Now()
 var globalAuthCtx *context.Context // holds auth token for sensorpush
-var sensorPushCredentials struct {
-	username string
-	password string
-}
 
 var sensorNameMap map[string]string      // maps sensor IDs to display names
 var sensorNamesRefresh = make(chan bool) // send to this channel to force-refresh the sensor names
@@ -103,12 +99,11 @@ func getClient() *sensorpush.APIClient {
 	return client
 }
 
-// User globally stored credentials to update the global auth context
+// Update the global auth context by fetching a new token
 // This allows us to share an auth context between pollforSamples() and sensorNameRefreshLoop(),
-// at the cost of having some global state. I'm not sure this is ideal.
-func authenticateGlobal(client *sensorpush.APIClient) {
-	username := sensorPushCredentials.username
-	password := sensorPushCredentials.password
+// at the cost of having some global state. I'm not sure this is ideal, but can't think
+// of another way do it without each goroutine managing its own token.
+func authenticateGlobal(client *sensorpush.APIClient, username string, password string) {
 	authCtx, err := getAuthContext(context.Background(), client, username, password)
 	if err != nil {
 		log.Fatal("Unable to authenticate: ", err)
@@ -230,8 +225,6 @@ func main() {
 	if !usernameSet || !passwordSet {
 		log.Fatalf("You must set %s and %s", usernameEnvVar, passwordEnvVar)
 	}
-	sensorPushCredentials.username = username
-	sensorPushCredentials.password = password
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -242,7 +235,7 @@ func main() {
 
 	log.Println("Authenticating.")
 	client := getClient()
-	authenticateGlobal(client)
+	authenticateGlobal(client, username, password)
 	log.Println("Authentication succeeded")
 
 	go sensorNameRefreshLoop(client, time.Duration(*sensorNameRefreshInterval)*time.Second)
@@ -254,7 +247,7 @@ func main() {
 	for {
 		samples, err := getSamples(globalAuthCtx, client, sensorNameMap)
 		if err != nil {
-			authenticateGlobal(client)
+			authenticateGlobal(client, username, password)
 			continue
 		}
 		updateMetrics(samples)
