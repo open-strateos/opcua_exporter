@@ -108,6 +108,7 @@ func authenticateGlobal(client *sensorpush.APIClient, username string, password 
 	if err != nil {
 		log.Fatal("Unable to authenticate: ", err)
 	}
+	log.Print("Authentication success.")
 	globalAuthCtx = authCtx
 	reauthCounter.Inc()
 }
@@ -233,10 +234,9 @@ func main() {
 	initMetrics(ctx)
 	go serveMetrics()
 
-	log.Println("Authenticating.")
 	client := getClient()
+	log.Println("Authenticating...")
 	authenticateGlobal(client, username, password)
-	log.Println("Authentication succeeded")
 
 	go sensorNameRefreshLoop(client, time.Duration(*sensorNameRefreshInterval)*time.Second)
 	// Trigger and wait for an initial fetch
@@ -247,6 +247,8 @@ func main() {
 	for {
 		samples, err := getSamples(globalAuthCtx, client, sensorNameMap)
 		if err != nil {
+			log.Print("Failed to fetch samples: ", err)
+			log.Print("Reauthenticating...")
 			authenticateGlobal(client, username, password)
 			continue
 		}
