@@ -205,16 +205,23 @@ func getSamples(authCtx *context.Context, client *sensorpush.APIClient, sensorNa
 
 }
 
+func fahrenheitToCelcius(tempF float32) float64 {
+	return float64(tempF-32) / 1.8
+}
+
 // Update prometheus metrics
 func updateMetrics(samples map[string]sensorpush.Sample) {
 	for sensorName, sample := range samples {
 		labels := prometheus.Labels{
 			"device_name": sensorName,
 		}
-		temperatureGaugeVec.With(labels).Set(float64(sample.Temperature))
 
-		humidityGaugeVec.With(labels).Set(float64(sample.Humidity))
-		log.Printf("device_name: %s\ttemp: %fC\thumidity: %f%%", sensorName, sample.Temperature, sample.Humidity)
+		temperatureCelcius := fahrenheitToCelcius(sample.Temperature)
+		humidityPct := float64(sample.Humidity)
+		temperatureGaugeVec.With(labels).Set(temperatureCelcius)
+		humidityGaugeVec.With(labels).Set(humidityPct)
+
+		log.Printf("device_name: %s\ttemp: %fC\thumidity: %f%%", sensorName, temperatureCelcius, humidityPct)
 	}
 }
 
