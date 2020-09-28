@@ -31,6 +31,7 @@ var configB64 = flag.String("config-b64", "", "Base64-encoded config JSON. Overr
 var debug = flag.Bool("debug", false, "Enable debug logging")
 var readTimeout = flag.Duration("read-timeout", 5*time.Second, "Timeout when waiting for OPCUA subscription messages")
 var maxTimeouts = flag.Int("max-timeouts", 0, "The exporter will quit trying after this many read timeouts (0 to disable).")
+var bufferSize = flag.Int("buffer-size", 64, "Maximum number of messages in the receive buffer")
 
 // NodeConfig : Structure for representing OPCUA nodes to monitor.
 type NodeConfig struct {
@@ -98,7 +99,7 @@ func main() {
 	defer client.Close()
 
 	metricMap := createMetrics(&nodes)
-	go setupMonitor(ctx, client, &nodes, metricMap)
+	go setupMonitor(ctx, client, &nodes, metricMap, *bufferSize)
 
 	http.Handle("/metrics", promhttp.Handler())
 	var listenOn = fmt.Sprintf(":%d", *port)
@@ -112,7 +113,7 @@ func getClient(endpoint *string) *opcua.Client {
 }
 
 // Subscribe to all the nodes and update the appropriate prometheus metrics on change
-func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig, handlerMap HandlerMap) {
+func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig, handlerMap HandlerMap, bufferSize int) {
 	m, err := monitor.NewNodeMonitor(client)
 	if err != nil {
 		log.Fatal(err)
@@ -123,7 +124,7 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig
 		nodeList = append(nodeList, node.NodeName)
 	}
 
-	ch := make(chan *monitor.DataChangeMessage, 16)
+	ch := make(chan *monitor.DataChangeMessage, bufferSize)
 	params := opcua.SubscriptionParameters{Interval: time.Second}
 	sub, err := m.ChanSubscribe(ctx, &params, ch, nodeList...)
 	if err != nil {
