@@ -31,7 +31,7 @@ var configB64 = flag.String("config-b64", "", "Base64-encoded config JSON. Overr
 var debug = flag.Bool("debug", false, "Enable debug logging")
 var readTimeout = flag.Duration("read-timeout", 5*time.Second, "Timeout when waiting for OPCUA subscription messages")
 var maxTimeouts = flag.Int("max-timeouts", 0, "The exporter will quit trying after this many read timeouts (0 to disable).")
-var bufferSize = flag.Int("buffer-size", 64, "Number of messages in the receive buffer")
+var bufferSize = flag.Int("buffer-size", 64, "Maximum number of messages in the receive buffer")
 
 // NodeConfig : Structure for representing OPCUA nodes to monitor.
 type NodeConfig struct {
