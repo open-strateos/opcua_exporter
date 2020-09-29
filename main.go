@@ -93,8 +93,11 @@ func main() {
 	}
 
 	client := getClient(endpoint)
+	log.Printf("Connecting to OPCUA server at %s", *endpoint)
 	if err := client.Connect(ctx); err != nil {
 		log.Fatalf("Error connecting to OPC UA client: %v", err)
+	} else {
+		log.Print("Connected successfully")
 	}
 	defer client.Close()
 
@@ -141,11 +144,11 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig
 			return
 		case msg := <-ch:
 			if msg.Error != nil {
-				log.Printf("[channel ] sub=%d error=%s", sub.SubscriptionID(), msg.Error)
+				log.Printf("[error ] sub=%d error=%s", sub.SubscriptionID(), msg.Error)
 			} else if msg.Value == nil {
 				log.Printf("nil value received for node %s", msg.NodeID)
 			} else {
-				log.Printf("[channel ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
+				log.Printf("[message ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
 				handler := handlerMap[msg.NodeID.String()].handler
 				value := msg.Value
 				err = handler.Handle(*value)
