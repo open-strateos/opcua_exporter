@@ -57,15 +57,24 @@ type handlerMapRecord struct {
 
 var startTime = time.Now()
 var uptimeGauge prometheus.Gauge
+var messageCounter prometheus.Counter
 
 func init() {
+	subsystem := "opcua_exporter"
 	uptimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Subsystem: "opcua_exporter",
+		Subsystem: subsystem,
 		Name:      "uptime_seconds",
 		Help:      "Time in seconds since the OPCUA exporter started",
 	})
 	uptimeGauge.Set(time.Now().Sub(startTime).Seconds())
 	prometheus.MustRegister(uptimeGauge)
+
+	messageCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Subsystem: subsystem,
+		Name:      "message_count",
+		Help:      "Total number of OPCUA channel updates received by the exporter",
+	})
+	prometheus.MustRegister(messageCounter)
 }
 
 func main() {
@@ -148,7 +157,11 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig
 			} else if msg.Value == nil {
 				log.Printf("nil value received for node %s", msg.NodeID)
 			} else {
-				log.Printf("[message ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
+				if *debug {
+					log.Printf("[message ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
+				}
+				messageCounter.Inc()
+
 				handler := handlerMap[msg.NodeID.String()].handler
 				value := msg.Value
 				err = handler.Handle(*value)
