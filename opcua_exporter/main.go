@@ -32,6 +32,7 @@ var debug = flag.Bool("debug", false, "Enable debug logging")
 var readTimeout = flag.Duration("read-timeout", 5*time.Second, "Timeout when waiting for OPCUA subscription messages")
 var maxTimeouts = flag.Int("max-timeouts", 0, "The exporter will quit trying after this many read timeouts (0 to disable).")
 var bufferSize = flag.Int("buffer-size", 64, "Maximum number of messages in the receive buffer")
+var summaryInterval = flag.Duration("summary-interval", 5*time.Minute, "How frequently to print an event count summary")
 
 // NodeConfig : Structure for representing OPCUA nodes to monitor.
 type NodeConfig struct {
@@ -57,15 +58,27 @@ type handlerMapRecord struct {
 
 var startTime = time.Now()
 var uptimeGauge prometheus.Gauge
+var messageCounter prometheus.Counter
+var eventSummaryCounter *EventSummaryCounter
 
 func init() {
+	subsystem := "opcua_exporter"
 	uptimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
-		Subsystem: "opcua_exporter",
+		Subsystem: subsystem,
 		Name:      "uptime_seconds",
 		Help:      "Time in seconds since the OPCUA exporter started",
 	})
 	uptimeGauge.Set(time.Now().Sub(startTime).Seconds())
 	prometheus.MustRegister(uptimeGauge)
+
+	messageCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Subsystem: subsystem,
+		Name:      "message_count",
+		Help:      "Total number of OPCUA channel updates received by the exporter",
+	})
+	prometheus.MustRegister(messageCounter)
+
+	eventSummaryCounter = NewEventSummaryCounter(*summaryInterval)
 }
 
 func main() {
@@ -75,6 +88,8 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	eventSummaryCounter.Start(ctx)
 
 	var nodes []NodeConfig
 	var readError error
@@ -148,8 +163,15 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig
 			} else if msg.Value == nil {
 				log.Printf("nil value received for node %s", msg.NodeID)
 			} else {
-				log.Printf("[message ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
-				handler := handlerMap[msg.NodeID.String()].handler
+				if *debug {
+					log.Printf("[message ] sub=%d ts=%s node=%s value=%v", sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
+				}
+
+				messageCounter.Inc()
+				nodeID := msg.NodeID.String()
+				eventSummaryCounter.Inc(nodeID)
+
+				handler := handlerMap[nodeID].handler
 				value := msg.Value
 				err = handler.Handle(*value)
 				if err != nil {
