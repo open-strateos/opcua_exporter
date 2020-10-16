@@ -42,7 +42,7 @@ func (esc *EventSummaryCounter) Reset() {
 func (esc *EventSummaryCounter) Start(ctx context.Context) {
 	go func() {
 		log.Printf("Starting %v summary timer", esc.Interval.String())
-		esc.Reset() // Initializes the map
+		esc.Reset()
 		ticker := time.NewTicker(esc.Interval)
 		for {
 			select {
