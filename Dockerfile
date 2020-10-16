@@ -9,7 +9,7 @@ FROM golang_image as builder
 COPY --from=tester /build /build
 COPY --from=tester /go /go
 WORKDIR /build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o opcua_exporter main.go opc_value_handler.go opcua_bitvector_handler.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o opcua_exporter .
 
 FROM scratch
 WORKDIR /
