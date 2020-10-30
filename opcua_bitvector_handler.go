@@ -19,6 +19,7 @@ import (
 type OpcuaBitVectorHandler struct {
 	gauge      prometheus.Gauge
 	extractBit int // identifies the bit to extract. little endian bit & byte order.
+	debug      bool
 }
 
 // Handle computes the float value and emit it as a prometheus metric.
@@ -27,7 +28,9 @@ func (h OpcuaBitVectorHandler) Handle(v ua.Variant) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Extracted bit number %d: value=%d", h.extractBit, int(floatVal))
+	if h.debug {
+		log.Printf("Extracted bit number %d: value=%d", h.extractBit, int(floatVal))
+	}
 	h.gauge.Set(floatVal)
 	return nil
 }
