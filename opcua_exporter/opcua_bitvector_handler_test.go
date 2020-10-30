@@ -11,7 +11,7 @@ import (
 
 func getTestExtractHandler(extractBit int) OpcuaBitVectorHandler {
 	g := prom.NewGauge(prom.GaugeOpts{Name: "bar"})
-	return OpcuaBitVectorHandler{g, extractBit}
+	return OpcuaBitVectorHandler{g, extractBit, false}
 }
 
 func TestHandleBitVector(t *testing.T) {
