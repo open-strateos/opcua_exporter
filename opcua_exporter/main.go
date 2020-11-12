@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -21,6 +20,7 @@ import (
 	"github.com/gopcua/opcua/ua"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gopkg.in/yaml.v2"
 )
 
 var port = flag.Int("port", 9686, "Port to publish metrics on.")
@@ -36,9 +36,9 @@ var summaryInterval = flag.Duration("summary-interval", 5*time.Minute, "How freq
 
 // NodeConfig : Structure for representing OPCUA nodes to monitor.
 type NodeConfig struct {
-	NodeName   string      // OPC UA node identifier
-	MetricName string      // Prometheus metric name to emit
-	ExtractBit interface{} // Optional numeric value. If present and positive, extract just this bit and emit it as a boolean metric
+	NodeName   string      `yaml:"nodeName"`             // OPC UA node identifier
+	MetricName string      `yaml:"metricName"`           // Prometheus metric name to emit
+	ExtractBit interface{} `yaml:"extractBit,omitempty"` // Optional numeric value. If present and positive, extract just this bit and emit it as a boolean metric
 }
 
 // MsgHandler interface can convert OPC UA Variant objects
@@ -240,7 +240,7 @@ func readConfigFile(path string) ([]NodeConfig, error) {
 		return nil, err
 	}
 
-	return parseConfigJSON(f)
+	return parseConfigYAML(f)
 }
 
 func readConfigBase64(encodedConfig *string) ([]NodeConfig, error) {
@@ -248,17 +248,17 @@ func readConfigBase64(encodedConfig *string) ([]NodeConfig, error) {
 	if decodeErr != nil {
 		log.Fatal(decodeErr)
 	}
-	return parseConfigJSON(bytes.NewReader(config))
+	return parseConfigYAML(bytes.NewReader(config))
 }
 
-func parseConfigJSON(config io.Reader) ([]NodeConfig, error) {
+func parseConfigYAML(config io.Reader) ([]NodeConfig, error) {
 	content, err := ioutil.ReadAll(config)
 	if err != nil {
 		return nil, err
 	}
 
 	var nodes []NodeConfig
-	err = json.Unmarshal(content, &nodes)
+	err = yaml.Unmarshal(content, &nodes)
 	log.Printf("Found %d nodes in config file.", len(nodes))
 	return nodes, err
 }
