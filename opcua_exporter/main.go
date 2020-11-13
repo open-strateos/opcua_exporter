@@ -221,7 +221,7 @@ func createHandler(nodeConfig NodeConfig) MsgHandler {
 
 	var handler MsgHandler
 	if nodeConfig.ExtractBit != nil {
-		extractBit := nodeConfig.ExtractBit.(int)
+		extractBit := nodeConfig.ExtractBit.(int) // coerce interface to an integer
 		handler = OpcuaBitVectorHandler{g, extractBit, *debug}
 	} else {
 		handler = OpcValueHandler{g}
