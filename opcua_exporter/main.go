@@ -221,7 +221,7 @@ func createHandler(nodeConfig NodeConfig) MsgHandler {
 
 	var handler MsgHandler
 	if nodeConfig.ExtractBit != nil {
-		extractBit := int(nodeConfig.ExtractBit.(float64)) // JSON numbers are float64 by default
+		extractBit := nodeConfig.ExtractBit.(int) // coerce interface to an integer
 		handler = OpcuaBitVectorHandler{g, extractBit, *debug}
 	} else {
 		handler = OpcValueHandler{g}
