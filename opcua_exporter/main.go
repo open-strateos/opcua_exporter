@@ -171,14 +171,7 @@ func setupMonitor(ctx context.Context, client *opcua.Client, handlerMap HandlerM
 				nodeID := msg.NodeID.String()
 				eventSummaryCounter.Inc(nodeID)
 
-				for _, handlerMapRec := range handlerMap[nodeID] {
-					handler := handlerMapRec.handler
-					value := msg.Value
-					err = handler.Handle(*value)
-					if err != nil {
-						log.Printf("Error handling opcua value: %s\n", err)
-					}
-				}
+				handleMessage(msg, handlerMap)
 			}
 			time.Sleep(lag)
 		case <-time.After(*readTimeout):
@@ -202,9 +195,12 @@ func handleMessage(msg *monitor.DataChangeMessage, handlerMap HandlerMap) {
 	for _, handlerMapRec := range handlerMap[nodeID] {
 		handler := handlerMapRec.handler
 		value := msg.Value
+		if *debug {
+			log.Printf("Handling %s --> %s", nodeID, handlerMapRec.config.MetricName)
+		}
 		err := handler.Handle(*value)
 		if err != nil {
-			log.Printf("Error handling opcua value: %s\n", err)
+			log.Printf("Error handling opcua value: %s (%s)\n", err, handlerMapRec.config.MetricName)
 		}
 	}
 }
