@@ -21,7 +21,6 @@ pipeline {
     stage("Setup") {
       steps {
         echo "Branch $BRANCH_NAME"
-        echo "Tag: $TAG_NAME"
         script { utils.setup_worker() }
       }
     }
@@ -51,6 +50,18 @@ pipeline {
         }
         stage("sensorpush") {
           steps { sh "docker push ${SENSORPUSH_DOCKER_IMAGE}" }
+        }
+      }
+    }
+
+    stage("Release") {
+      when {tag ""} // execute if the commit is tagged
+      parallel {
+        stage("opcua") {
+          steps {
+            script { utils.build_docker(OPCUA_DOCKER_IMAGE, TAG_NAME, OPCUA_DIR) }
+            sh "docker push ${OPCUA_DOCKER_IMAGE}:${TAG_NAME}" 
+          }
         }
       }
     }
