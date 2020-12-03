@@ -20,6 +20,8 @@ pipeline {
   stages {
     stage("Setup") {
       steps {
+        echo "Branch $BRANCH_NAME"
+        echo "Tag: $TAG_NAME"
         script { utils.setup_worker() }
       }
     }
