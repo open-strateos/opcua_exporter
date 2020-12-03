@@ -49,7 +49,7 @@ type MsgHandler interface {
 }
 
 // HandlerMap maps OPC UA channel names to MsgHandlers
-type HandlerMap map[string]handlerMapRecord
+type HandlerMap map[string][]handlerMapRecord
 
 type handlerMapRecord struct {
 	config  NodeConfig
@@ -117,7 +117,7 @@ func main() {
 	defer client.Close()
 
 	metricMap := createMetrics(&nodes)
-	go setupMonitor(ctx, client, &nodes, metricMap, *bufferSize)
+	go setupMonitor(ctx, client, metricMap, *bufferSize)
 
 	http.Handle("/metrics", promhttp.Handler())
 	var listenOn = fmt.Sprintf(":%d", *port)
@@ -131,15 +131,15 @@ func getClient(endpoint *string) *opcua.Client {
 }
 
 // Subscribe to all the nodes and update the appropriate prometheus metrics on change
-func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig, handlerMap HandlerMap, bufferSize int) {
+func setupMonitor(ctx context.Context, client *opcua.Client, handlerMap HandlerMap, bufferSize int) {
 	m, err := monitor.NewNodeMonitor(client)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var nodeList []string
-	for _, node := range *nodes {
-		nodeList = append(nodeList, node.NodeName)
+	for nodeName := range handlerMap { // Node names are keys of handlerMap
+		nodeList = append(nodeList, nodeName)
 	}
 
 	ch := make(chan *monitor.DataChangeMessage, bufferSize)
@@ -171,12 +171,7 @@ func setupMonitor(ctx context.Context, client *opcua.Client, nodes *[]NodeConfig
 				nodeID := msg.NodeID.String()
 				eventSummaryCounter.Inc(nodeID)
 
-				handler := handlerMap[nodeID].handler
-				value := msg.Value
-				err = handler.Handle(*value)
-				if err != nil {
-					log.Printf("Error handling opcua value: %s\n", err)
-				}
+				handleMessage(msg, handlerMap)
 			}
 			time.Sleep(lag)
 		case <-time.After(*readTimeout):
@@ -195,13 +190,29 @@ func cleanup(sub *monitor.Subscription) {
 	sub.Unsubscribe()
 }
 
+func handleMessage(msg *monitor.DataChangeMessage, handlerMap HandlerMap) {
+	nodeID := msg.NodeID.String()
+	for _, handlerMapRec := range handlerMap[nodeID] {
+		handler := handlerMapRec.handler
+		value := msg.Value
+		if *debug {
+			log.Printf("Handling %s --> %s", nodeID, handlerMapRec.config.MetricName)
+		}
+		err := handler.Handle(*value)
+		if err != nil {
+			log.Printf("Error handling opcua value: %s (%s)\n", err, handlerMapRec.config.MetricName)
+		}
+	}
+}
+
 // Initialize a Prometheus gauge for each node. Return them as a map.
 func createMetrics(nodeConfigs *[]NodeConfig) HandlerMap {
 	handlerMap := make(HandlerMap)
 	for _, nodeConfig := range *nodeConfigs {
 		nodeName := nodeConfig.NodeName
 		metricName := nodeConfig.MetricName
-		handlerMap[nodeName] = handlerMapRecord{nodeConfig, createHandler(nodeConfig)}
+		mapRecord := handlerMapRecord{nodeConfig, createHandler(nodeConfig)}
+		handlerMap[nodeName] = append(handlerMap[nodeName], mapRecord)
 		log.Printf("Created prom metric %s for OPC UA node %s", metricName, nodeName)
 	}
 
