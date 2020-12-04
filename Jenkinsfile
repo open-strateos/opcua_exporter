@@ -44,25 +44,17 @@ pipeline {
     }
 
     stage("Push") {
-      when { branch "master" }
+      when { tag "" }
       parallel {
         stage("opcua") {
+          script { utils.build_docker(OPCUA_DOCKER_IMAGE, TAG_NAME, OPCUA_DIR) }
           steps { sh "docker push ${OPCUA_DOCKER_IMAGE}" }
+          steps { sh "docker push ${OPCUA_DOCKER_IMAGE}:${TAG_NAME}" }
         }
         stage("sensorpush") {
+          steps { script { utils.build_docker(SENSORPUSH_DOCKER_IMAGE, TAG_NAME, SENSORPUSH_DIR) } }
           steps { sh "docker push ${SENSORPUSH_DOCKER_IMAGE}" }
-        }
-      }
-    }
-
-    stage("Release") {
-      when {tag ".*"} // execute if the commit is tagged
-      parallel {
-        stage("opcua") {
-          steps {
-            script { utils.build_docker(OPCUA_DOCKER_IMAGE, TAG_NAME, OPCUA_DIR) }
-            sh "docker push ${OPCUA_DOCKER_IMAGE}:${TAG_NAME}" 
-          }
+          steps { sh "docker push ${SENSORPUSH_DOCKER_IMAGE}:${TAG_NAME}" }
         }
       }
     }
