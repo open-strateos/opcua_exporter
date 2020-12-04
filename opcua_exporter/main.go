@@ -215,6 +215,7 @@ func createMetrics(nodeConfigs *[]NodeConfig) HandlerMap {
 		handlerMap[nodeName] = append(handlerMap[nodeName], mapRecord)
 		log.Printf("Created prom metric %s for OPC UA node %s", metricName, nodeName)
 	}
+	log.Printf("Registered %d handlers for %d unique UPCUA nodes", len(*nodeConfigs), len(handlerMap))
 
 	return handlerMap
 }
