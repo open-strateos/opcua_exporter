@@ -21,6 +21,7 @@ pipeline {
     stage("Setup") {
       steps {
         echo "Branch $BRANCH_NAME"
+        echo "Tag ${env.TAG_NAME}"
         script { utils.setup_worker() }
       }
     }
