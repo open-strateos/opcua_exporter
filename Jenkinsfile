@@ -64,7 +64,7 @@ pipeline {
         }
         stage("sensorpush") {
           steps {
-            script { utils.build_docker(SENSORPUSH_DOCKER_IMAGE, TAG_NAME, OPCUA_DIR) }
+            script { utils.build_docker(SENSORPUSH_DOCKER_IMAGE, TAG_NAME, SENSORPUSH_DIR) }
             sh "docker push ${SENSORPUSH_DOCKER_IMAGE}:${TAG_NAME}" 
           }
         }
