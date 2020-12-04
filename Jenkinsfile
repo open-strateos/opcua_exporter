@@ -55,7 +55,7 @@ pipeline {
     }
 
     stage("Release") {
-      when {tag ""} // execute if the commit is tagged
+      when {tag } // execute if the commit is tagged
       parallel {
         stage("opcua") {
           steps {
