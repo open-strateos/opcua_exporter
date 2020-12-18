@@ -16,5 +16,5 @@ jobs:
           username: ${{github.actor}}
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: docker.pkg.github.com
-          repository: Open-Strateos/opcua_exporter/opcua_exporter
+          repository: open-strateos/opcua_exporter/opcua_exporter
           tag_with_ref: true
