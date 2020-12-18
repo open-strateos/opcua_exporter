@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+// NewEventSummaryCounter creates a new event counter that will
+// log a summary at every interval.
 func NewEventSummaryCounter(interval time.Duration) *EventSummaryCounter {
 	return &EventSummaryCounter{
 		Interval: interval,
@@ -14,6 +16,10 @@ func NewEventSummaryCounter(interval time.Duration) *EventSummaryCounter {
 	}
 }
 
+// EventSummaryCounter keeps a set of counters, one for each event name string it receives
+// Periodically, it logs all the counts and then clears its timers.
+// This is to reduce log volume while allowing some visibility into the shape of the OPC-UA event traffic
+// being received by the exporter
 type EventSummaryCounter struct {
 	Interval time.Duration
 	Counts   map[string]int
@@ -21,6 +27,7 @@ type EventSummaryCounter struct {
 	mutex    sync.Mutex
 }
 
+// Inc adds one to the counter for the given channel
 func (esc *EventSummaryCounter) Inc(channel string) {
 	esc.mutex.Lock()
 	if _, ok := esc.Counts[channel]; ok {
@@ -32,6 +39,7 @@ func (esc *EventSummaryCounter) Inc(channel string) {
 	esc.mutex.Unlock()
 }
 
+// Reset all the counters to zero
 func (esc *EventSummaryCounter) Reset() {
 	esc.mutex.Lock()
 	esc.Counts = make(map[string]int)
@@ -39,6 +47,8 @@ func (esc *EventSummaryCounter) Reset() {
 	esc.mutex.Unlock()
 }
 
+// Start the goroutine that periodically logs the counter summary,
+// then resets the counters.
 func (esc *EventSummaryCounter) Start(ctx context.Context) {
 	go func() {
 		log.Printf("Starting %v summary timer", esc.Interval.String())

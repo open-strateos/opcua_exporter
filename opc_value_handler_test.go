@@ -36,17 +36,17 @@ func TestCoerceNumericValues(t *testing.T) {
 	}
 
 	testCases := []floatTest{
-		floatTest{byte(0x03), 3.0},
-		floatTest{int8(-4), -4.0},
-		floatTest{int16(2), 2.0},
-		floatTest{int32(33), 33.0},
-		floatTest{int64(25), 25.0},
-		floatTest{uint8(4), 4.0},
-		floatTest{uint16(2), 2.0},
-		floatTest{uint32(33), 33.0},
-		floatTest{uint64(25), 25.0},
-		floatTest{float32(8.8), float64(float32(8.8))}, // float32 --> float64 actually introduces rounding errors on the order of 1e-7
-		floatTest{float64(238.4), 238.4},               // float32 --> float64 actually introduces rounding errors on the order of 1e-7
+		{byte(0x03), 3.0},
+		{int8(-4), -4.0},
+		{int16(2), 2.0},
+		{int32(33), 33.0},
+		{int64(25), 25.0},
+		{uint8(4), 4.0},
+		{uint16(2), 2.0},
+		{uint32(33), 33.0},
+		{uint64(25), 25.0},
+		{float32(8.8), float64(float32(8.8))}, // float32 --> float64 actually introduces rounding errors on the order of 1e-7
+		{float64(238.4), 238.4},               // float32 --> float64 actually introduces rounding errors on the order of 1e-7
 	}
 	for _, testCase := range testCases {
 		variant, e := ua.NewVariant(testCase.input)

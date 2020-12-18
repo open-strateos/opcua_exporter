@@ -11,11 +11,11 @@ import (
 )
 
 var testNodes = []NodeConfig{
-	NodeConfig{
+	{
 		NodeName:   "foo",
 		MetricName: "bar",
 	},
-	NodeConfig{
+	{
 		NodeName:   "baz",
 		MetricName: "bak",
 		ExtractBit: 4,
