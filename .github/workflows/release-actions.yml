@@ -1,0 +1,18 @@
+Name: Publish on release
+on:
+  release:
+    types: [published]
+jobs:
+  push_to_registry:
+    name: Build and push image to github packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build and push
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{github.actor}}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.pkg.github.com
+          repository: Open-Strateos/opcua_exporter/opcua_exporter
+          tag_with_ref: true
