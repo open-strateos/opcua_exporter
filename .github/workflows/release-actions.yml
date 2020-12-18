@@ -1,7 +1,9 @@
-Name: Publish on release
+name: Publish on release
 on:
   release:
     types: [published]
+  create:
+    ref_type: tag
 jobs:
   push_to_registry:
     name: Build and push image to github packages
