@@ -16,5 +16,5 @@ jobs:
           username: ${{github.actor}}
           password: ${{ secrets.GHCR_PUBLISH_TOKEN }}
           registry: ghcr.io
-          repository: open-strateos/opcua_exporter/opcua_exporter
+          repository: open-strateos/opcua_exporter
           tag_with_ref: true
