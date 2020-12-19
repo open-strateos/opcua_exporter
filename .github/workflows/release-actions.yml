@@ -1,4 +1,4 @@
-name: Publish on release
+name: Publish Release
 on:
   release:
     types: [published]
@@ -14,7 +14,7 @@ jobs:
         uses: docker/build-push-action@v1
         with:
           username: ${{github.actor}}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          registry: docker.pkg.github.com
+          password: ${{ secrets.GHCR_PUBLISH_TOKEN }}
+          registry: ghcr.io
           repository: open-strateos/opcua_exporter/opcua_exporter
           tag_with_ref: true
