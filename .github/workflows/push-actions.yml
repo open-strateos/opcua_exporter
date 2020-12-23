@@ -16,12 +16,3 @@ jobs:
       - name: tests
         run: go test
         id: test
-      - uses: LouisBrunner/checks-action@v1.1.1
-        if: github.event_name == "pull_request"
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: Test XYZ
-          conclusion: ${{ job.status }}
-          output: |
-            {"summary":${{ steps.test.outputs.summary }}}
-
