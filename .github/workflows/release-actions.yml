@@ -1,7 +1,7 @@
 name: Publish Release
 on:
   release:
-    types: [published]
+    types: [created]
   create:
     ref_type: tag
 jobs:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
-      - name: Build and push
+      - name: Build and push docker image
         uses: docker/build-push-action@v2
         with:
           username: ${{github.actor}}
@@ -18,3 +18,22 @@ jobs:
           registry: ghcr.io
           repository: open-strateos/opcua_exporter
           tag_with_ref: true
+  publish_binaries:
+    name: Build binaries and attach them to the release
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        goos:
+          - linux
+          - darwin
+          - windows
+    steps:
+      - uses: actions/checkout@v2
+      - uses: wangyoucao577/go-release-action@v1.11
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          go_version: 1.13
+          goarch: amd64
+          goos: ${{ matrix.goos }}
+          binary_name: opcua_exporter
+        
