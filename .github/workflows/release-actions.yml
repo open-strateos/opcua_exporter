@@ -7,11 +7,11 @@ on:
 jobs:
   push_to_registry:
     name: Build and push image to github packages
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - name: Build and push
-        uses: docker/build-push-action@v1
+        uses: docker/build-push-action@v2
         with:
           username: ${{github.actor}}
           password: ${{ secrets.GHCR_PUBLISH_TOKEN }}
