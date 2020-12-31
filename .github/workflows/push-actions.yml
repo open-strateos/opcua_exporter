@@ -1,7 +1,7 @@
-name: push-actions
+name: Push Actions
 on: [push, pull_request]
 jobs:
-  run-tests:
+  run-build:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -13,6 +13,9 @@ jobs:
       - uses: actions/setup-go@v1
         with:
           go-version: ${{ matrix.go }}
-      - name: tests
+      - name: test
         run: go test
-        id: test
+        
+      # Not sure if we stand to learn much by running build after test here, but it shouldn't cost much either.
+      - name: build 
+        run: go build

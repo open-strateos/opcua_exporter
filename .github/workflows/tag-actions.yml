@@ -1,0 +1,50 @@
+
+name: Tag Actions
+on:
+  create:
+    ref_type: tag
+jobs:
+  push_to_registry:
+    name: Build and push image to github packages
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      -
+        name: Prepare
+        id: prep
+        run: |
+          DOCKER_IMAGE=ghcr.io/open-strateos/opcua_exporter
+          VERSION=edge
+          SEMVER_REGEX="^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          elif [[ $GITHUB_REF == refs/heads/* ]]; then
+            VERSION=$(echo ${GITHUB_REF#refs/heads/} | sed -r 's#/+#-#g')
+          elif [[ $GITHUB_REF == refs/pull/* ]]; then
+            VERSION=pr-${{ github.event.number }}
+          fi
+          TAGS="${DOCKER_IMAGE}:${VERSION}"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAGS="$TAGS,${DOCKER_IMAGE}:sha-${GITHUB_SHA::8}"
+          fi
+          if [[ $VERSION =~ $SEMVER_REGEX ]]; then
+            TAGS="$TAGS,${DOCKER_IMAGE}:latest"
+          fi
+          echo ::set-output name=version::${VERSION}
+          echo ::set-output name=tags::${TAGS}
+          echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          driver: docker-container
+      - name: Login to GitHub container registry
+        uses: docker/login-action@v1
+        with:
+          username: ${{github.actor}}
+          password: ${{ secrets.GHCR_PUBLISH_TOKEN }}
+          registry: ghcr.io
+      - name: Build and push docker image
+        uses: docker/build-push-action@v2
+        with:
+          tags: ${{ steps.prep.outputs.tags }}
+          push: true
